@@ -1,6 +1,7 @@
 import numpy as np
 import time
 from src.Controller import Controller
+from src.FollowController import FollowController
 from src.JoystickInterface import JoystickInterface
 from src.State import State
 from djipupper import HardwareInterface
@@ -26,7 +27,7 @@ def main(FLAGS):
     time.sleep(0.1)
 
     # Create controller and user input handles
-    controller = Controller(config, four_legs_inverse_kinematics)
+    controller = FollowController(config, four_legs_inverse_kinematics)
     state = State(height=config.default_z_ref)
     print("Creating joystick listener...", end="")
     joystick_interface = JoystickInterface(config)
