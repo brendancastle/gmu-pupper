@@ -25,5 +25,17 @@ This branch is for simulations. It is very similar to the main code but has diff
     * e --> starts/stops trotting gait
     * ijkl --> tilts and raises robot
 
+## added functionality:
+When running simulator:
+1. press `q` to activate robot
+2. press `e` to start trotting and position robot wherever
+3. when ready press `t` to start "follow mode". this makes the robot stand so it will re-orient itself
+4. press `u` to make robot enter "following mode": move 'forward' for a 'while' 
+    * this is the robot 'following' the object
+5. press `u` again to make it stop following and make it stand (re-orientation will happen)
+6. press `t` again to exit "follow mode"
+7. now you can manually take over the robot by pressing `e`
+
+
 NB. it may be that the pupper doesnt work. thats because we're working on it to add functionalities so it may cause pupper to crash :)
 

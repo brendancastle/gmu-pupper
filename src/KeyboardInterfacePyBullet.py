@@ -16,6 +16,7 @@ class JoystickInterface:
 
         self.previous_follow_toggle = 0
         self.previous_start_stop_following_toggle = 0
+        self.previous_rest_toggle = 1
         
         self.message_rate = 50
         self.msg = {
@@ -141,7 +142,11 @@ class JoystickInterface:
         command.follow_event = follow_toggle == 1 and self.previous_follow_toggle==0
         
         start_stop_following_toggle = msg["square"]
-        command.start_following_event = start_stop_following_toggle == 1 and self.previous_start_stop_following_toggle==0
+        command.start_stop_following_event = start_stop_following_toggle == 1 and self.previous_start_stop_following_toggle==0
+
+        rest_toggle = msg["circle"]
+        command.stand_event = rest_toggle == 1 and self.previous_rest_toggle==0
+
 
 
         # Update previous values for toggles and state
