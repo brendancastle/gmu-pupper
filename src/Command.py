@@ -18,8 +18,11 @@ class Command:
         self.activate_event = False
         self.deactivate_event = False
 
+        self.follow_event = False
+        self.start_stop_following_event = False
+
     def __str__(self):
-        return "vx: {} vy: {} wz: {} height: {} pitch: {} roll: {} hop_event: {} trot_event: {} ".format(
+        return "vx: {} vy: {} wz: {} height: {} pitch: {} roll: {} hop_event: {} trot_event: {} follow_event: {} start_stop_following_event: {} ".format(
             self.horizontal_velocity[0],
             self.horizontal_velocity[1],
             self.yaw_rate,
@@ -28,5 +31,7 @@ class Command:
             self.roll,
             self.hop_event,
             self.trot_event,
+            self.follow_event,
+            self.start_stop_following_event,
             self.activate_event,
         )

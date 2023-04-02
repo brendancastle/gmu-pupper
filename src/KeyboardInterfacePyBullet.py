@@ -13,6 +13,9 @@ class JoystickInterface:
         self.previous_state = BehaviorState.REST
         self.previous_hop_toggle = 0
         self.previous_activate_toggle = 0
+
+        self.previous_follow_toggle = 0
+        self.previous_start_stop_following_toggle = 0
         
         self.message_rate = 50
         self.msg = {
@@ -134,10 +137,19 @@ class JoystickInterface:
             activate_toggle == 1 and self.previous_activate_toggle == 0
         )
 
+        follow_toggle = msg["triangle"]
+        command.follow_event = follow_toggle == 1 and self.previous_follow_toggle==0
+        
+        start_stop_following_toggle = msg["square"]
+        command.start_following_event = start_stop_following_toggle == 1 and self.previous_start_stop_following_toggle==0
+
+
         # Update previous values for toggles and state
         self.previous_gait_toggle = gait_toggle
         self.previous_hop_toggle = hop_toggle
         self.previous_activate_toggle = activate_toggle
+        self.previous_follow_toggle = follow_toggle
+        self.previous_start_stop_following_toggle = start_stop_following_toggle
 
         ####### Handle continuous commands ########
         x_vel = msg["ly"] * self.config.max_x_velocity
