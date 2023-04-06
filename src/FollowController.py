@@ -79,26 +79,17 @@ class FollowController(Controller):
                 l_alpha = 0.15
                 r_alpha = 0.3
                 # lets just move straight and right
-                self.lx_ = l_alpha * 1 + (1 - l_alpha) * self.lx_  # l_alpha*1 for forward. l_alpha*-1 for backward
+                self.lx_ = l_alpha * 0 + (1 - l_alpha) * self.lx_  
+                self.ly_ = l_alpha * 1 + (1 - l_alpha) * self.ly_         # l_alpha*1 for forward. l_alpha*-1 for backward
+
+                x_vel = self.ly_ * self.config.max_x_velocity
                 y_vel = self.lx_ * -self.config.max_y_velocity
-                command.horizontal_velocity = np.array([0, y_vel])
-                
+                command.horizontal_velocity = np.array([x_vel, y_vel])
+
                 self.rx_ = r_alpha * 1 + (1 - r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
                 command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
 
-                # # self.ly_ = l_alpha * 1 + (1 - l_alpha) * self.ly_ 
-                # # self.msg["ly"] = self.ly_
-                # x_vel = msg["ly"] * self.config.max_x_velocity
-
-                
-
-                
-                
-                
-                
-
                 command.trot_event = True
-
 
                 super().run(state, command)
 
