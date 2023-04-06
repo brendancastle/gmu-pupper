@@ -44,6 +44,7 @@ class FollowController(Controller):
                 super().run(state, command)
                 print("t pressed, in_follow_state exited")
         elif self.in_follow_state:
+
             if command.start_stop_following_event and self.following == False:
                 self.following = True
                 self.count = 0
@@ -64,32 +65,37 @@ class FollowController(Controller):
                 # calculate commands based on depth, direction
                 # pass to super
                 
-                self.eps = 1
-                self.slow_down_distance = 2
+                # self.eps = 1
+                # self.slow_down_distance = 2
                 
-                def calc_how_far(d):
-                    if d > self.slow_down_distance:
-                        return 1
-                    if d < self.eps:
-                        return 0
-                    return (d-self.eps)/(self.slow_down_distance-self.eps)
-                how_far = calc_how_far(depth)
+                # def calc_how_far(d):
+                #     if d > self.slow_down_distance:
+                #         return 1
+                #     if d < self.eps:
+                #         return 0
+                #     return (d-self.eps)/(self.slow_down_distance-self.eps)
+                # how_far = calc_how_far(depth)
 
                 l_alpha = 0.15
                 r_alpha = 0.3
-                # lets just move straight
+                # lets just move straight and right
                 self.lx_ = l_alpha * 1 + (1 - l_alpha) * self.lx_  # l_alpha*1 for forward. l_alpha*-1 for backward
-
-                # self.ly_ = l_alpha * 1 + (1 - l_alpha) * self.ly_ 
-                # self.msg["ly"] = self.ly_
-
-                # x_vel = msg["ly"] * self.config.max_x_velocity
                 y_vel = self.lx_ * -self.config.max_y_velocity
-
-                self.rx_ = r_alpha * 1 + (1 - r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
-                
-                command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
                 command.horizontal_velocity = np.array([0, y_vel])
+                
+                self.rx_ = r_alpha * 1 + (1 - r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
+                command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+
+                # # self.ly_ = l_alpha * 1 + (1 - l_alpha) * self.ly_ 
+                # # self.msg["ly"] = self.ly_
+                # x_vel = msg["ly"] * self.config.max_x_velocity
+
+                
+
+                
+                
+                
+                
 
                 command.trot_event = True
 

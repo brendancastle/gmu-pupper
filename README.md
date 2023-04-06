@@ -14,7 +14,7 @@ This branch is for simulations. It is very similar to the main code but has diff
 1. clone the puppersim repo (seperately) `git clone https://github.com/jietan/puppersim/`
 2. (optional) create conda environment. puppersim required python 3.7. `conda create --name rl_pupper python=3.7`
 3. install dependencies: 
-    * `pip3 install numpy transforms3d pyserial ray arspb`
+    * `pip3 install numpy transforms3d pyserial ray arspb quadprog`
     * inside puppersim repo: `pip3 install -e .`
 4. run the simulator server: `python3 puppersim/pupper_server.py`
 5. run the pupper on simulator server: `python3 run_djipupper_sim.py`
