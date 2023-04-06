@@ -8,8 +8,10 @@ class FollowController(Controller):
 
         self.in_follow_state = False
         self.following = False
-        self.lx_ = 0
-        self.ly_ = 0
+        self.rx_ = 0.0
+        self.ry_ = 0.0
+        self.lx_ = 0.0
+        self.ly_ = 0.0
 
 
         # updating transition mappings with FOLLOW
@@ -33,7 +35,6 @@ class FollowController(Controller):
         if command.follow_event:
             if self.in_follow_state == False:
                 # rest until start_following_event
-                state.behavior_state = self.stand_transition_mapping[state.behavior_state]
                 self.in_follow_state = True
                 command.stand_event = True
                 super().run(state, command)
@@ -48,7 +49,6 @@ class FollowController(Controller):
                 self.count = 0
                 print("u pressed, following started")
             elif command.start_stop_following_event and self.following == True:
-                state.behavior_state = self.stand_transition_mapping[state.behavior_state]
                 command.stand_event = True
                 self.following = False
                 super().run(state, command)
@@ -76,25 +76,36 @@ class FollowController(Controller):
                 how_far = calc_how_far(depth)
 
                 l_alpha = 0.15
-                # lets just move right and straight
-                self.lx_ = l_alpha * 1 + (1 - l_alpha) * self.lx_ 
+                r_alpha = 0.3
+                # lets just move straight
+                self.lx_ = l_alpha * 1 + (1 - l_alpha) * self.lx_  # l_alpha*1 for forward. l_alpha*-1 for backward
 
                 # self.ly_ = l_alpha * 1 + (1 - l_alpha) * self.ly_ 
                 # self.msg["ly"] = self.ly_
 
                 # x_vel = msg["ly"] * self.config.max_x_velocity
-                y_vel = self.lx_ * -self.config.max_y_velocity*how_far
+                y_vel = self.lx_ * -self.config.max_y_velocity
 
-                if y_vel != 0:
-                    command.horizontal_velocity = np.array([0, y_vel])
-                    state.behavior_state = self.walk_transition_mapping[state.behavior_state]
-                    super().run(state, command)
-                    self.count += 1
-                else:
-                    print("goal reached!")
-                    state.behavior_state = self.stand_transition_mapping[state.behavior_state]
-                    command.stand_event = True
-                    super().run(state, command)
+                self.rx_ = r_alpha * 1 + (1 - r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
+                
+                command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+                command.horizontal_velocity = np.array([0, y_vel])
+
+                command.trot_event = True
+
+
+                super().run(state, command)
+
+                # if y_vel != 0:
+                #     command.horizontal_velocity = np.array([0, y_vel])
+                #     state.behavior_state = self.walk_transition_mapping[state.behavior_state]
+                #     super().run(state, command)
+                #     self.count += 1
+                # else:
+                #     print("goal reached!")
+                #     state.behavior_state = self.stand_transition_mapping[state.behavior_state]
+                #     command.stand_event = True
+                #     super().run(state, command)
                     
                 
         else:
