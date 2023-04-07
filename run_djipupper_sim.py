@@ -18,6 +18,9 @@ import datetime
 import os
 import msgpack
 
+
+from get_camera import Camera_serial
+
 DIRECTORY = "logs/"
 FILE_DESCRIPTOR = "walking"
 
@@ -36,6 +39,8 @@ def main(FLAGS):
     
     joystick_interface = JoystickInterface(config,hardware_interface.serial_handle.p)
     print("Done.")
+
+    camera_serial = Camera_serial(100, 100)
 
     summarize_config(config)
 
@@ -102,6 +107,12 @@ def main(FLAGS):
                           state.joint_angles
                       )
                     
+                    
+                    rgb, depth = camera_serial.get_camera_details()
+                    if depth is not None:
+                        print("{DEBUG} depth:",depth)
+
+
                     last_loop = now
     except KeyboardInterrupt:
         if FLAGS.log:
