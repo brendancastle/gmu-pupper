@@ -16,7 +16,7 @@ class FollowController(Controller):
         self.ly_ = 0.0
 
         self.l_alpha = 0.15
-        self.r_alpha = 0.3
+        self.r_alpha = 0.1
 
         # probably from config file to get cam_skip_frames, distance 
         self.camera_module = Camera_serial(cam_skip_frames=100, distance=100)
@@ -25,7 +25,6 @@ class FollowController(Controller):
     def run(self, state, command):
         if command.follow_event:
             if self.in_follow_state == False:
-                # rest until start_following_event
                 self.in_follow_state = True
                 command.stand_event = True
                 super().run(state, command)
@@ -48,10 +47,6 @@ class FollowController(Controller):
 
             if self.following:
                 delta_yaw, depth = self.camera_module.get_camera_details()
-                # if depth is not None:
-                #  print(f"DEBUG depth:{depth:.4f}, delta_yaw:{delta_yaw:.4f}")
-
-                # self.following=False
                 
                 self.eps = 0.5
                 self.slow_down_distance = 1.0
@@ -71,7 +66,6 @@ class FollowController(Controller):
                         return 0
 
                 
-                # # lets just move straight and right
                 # self.lx_ = self.l_alpha * 0 + (1 - self.l_alpha) * self.lx_         # no straffing
                 how_far = depth_fn(depth)
                 
@@ -87,11 +81,9 @@ class FollowController(Controller):
                     if state.behavior_state != BehaviorState.TROT:
                         command.trot_event = True
 
-                    
                     super().run(state, command)
                 else:
                     print("goal reached!")
-                    # state.behavior_state = self.stand_transition_mapping[state.behavior_state]
                     command.stand_event = True
                     super().run(state, command)
                     

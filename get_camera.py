@@ -59,7 +59,6 @@ class Camera_serial:
 
             for i in range (self.p.getNumBodies()):
                 b = self.p.getBodyUniqueId(i)
-                # print("body ", b, self.p.getBodyInfo(b))
                 if self.p.getBodyInfo(b)[1]==b'cone':
                     cone_id = b
                     break
@@ -72,28 +71,12 @@ class Camera_serial:
                 if min_dist > closest_points[i][8]:
                     min_dist = closest_points[i][8]
                     object_pos = closest_points[i][6]
-                
-            # print("{DEBUG} min_dist:", min_dist)
+            
 
             pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
             yaw_0 = self.p.getEulerFromQuaternion(orn)[2]
-            # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            # print(f"DEBUG object coord: ({object_pos[0]:.2f}, {object_pos[1]:.2f}, {object_pos[2]:.2f})")
-            # print(f"DEBUG my coord: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
             
-            # print(f"DEBUG before yaw: {yaw_0:.2f}")
-
             theta1 = math.atan2(object_pos[1]-pos[1],object_pos[0]-pos[0])
-            # theta2 = theta1-math.pi-math.pi/2
-
-            # print(f"DEBUG theta to move: {theta1:.2f}")
-            # final = list(self.p.getEulerFromQuaternion(orn))
-            # final[2] = theta2
-            # self.p.resetBasePositionAndOrientation(self.pupper_body_uid, pos, self.p.getQuaternionFromEuler(final))
-
-            # pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
-            # yaw = self.p.getEulerFromQuaternion(orn)[2]
-            # print(f"DEBUG after yaw: {yaw:.2f}")
             def limit_fn(x):
                 if x> 2*math.pi or x < -2*math.pi:
                     raise Exception(f"limit_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
@@ -117,9 +100,6 @@ class Camera_serial:
             calculated_yaw = theta1*a_hat + b_hat
             calculated_yaw = limit_fn(calculated_yaw)
             delta_yaw = wrap_around_fn(calculated_yaw-yaw_0)
-            # print(f"DEBUG calculated final yaw: {calculated_yaw:.2f}")
-            # print(f"DEBUG calculated delta_yaw: {delta_yaw:.4f}")
-            # print(f"DEBUG actual delta_yaw: {wrap_around_fn(yaw-yaw_0):.4f}")
             
             return delta_yaw, min_dist
         else:
