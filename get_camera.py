@@ -13,7 +13,7 @@ PYBULLET_KD_GAIN = 0.2
 
 class Camera_serial:
 
-    def __init__(self, cam_skip_frames, distance, show_camera=True):
+    def __init__(self, cam_skip_frames, distance, show_camera=False):
         self.cam_skip=0
         self.cam_skip_frames = cam_skip_frames
         self.distance = distance
@@ -59,18 +59,69 @@ class Camera_serial:
 
             for i in range (self.p.getNumBodies()):
                 b = self.p.getBodyUniqueId(i)
-                print("body ", b, self.p.getBodyInfo(b))
+                # print("body ", b, self.p.getBodyInfo(b))
                 if self.p.getBodyInfo(b)[1]==b'cone':
                     cone_id = b
                     break
-                
 
-            closest_points = self.p.getClosestPoints(self.pupper_body_uid, cone_id, 10000)
+            closest_points = self.p.getClosestPoints(self.pupper_body_uid, cone_id, max_distance)
+
             min_dist = max_distance
+            object_pos = None
             for i in range(len(closest_points)):
-                min_dist = min_dist if min_dist < closest_points[i][8] else closest_points[i][8]
-            print("{DEBUG} min_dist:", min_dist)
-            return None, min_dist
+                if min_dist > closest_points[i][8]:
+                    min_dist = closest_points[i][8]
+                    object_pos = closest_points[i][6]
+                
+            # print("{DEBUG} min_dist:", min_dist)
+
+            pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
+            yaw_0 = self.p.getEulerFromQuaternion(orn)[2]
+            # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            # print(f"DEBUG object coord: ({object_pos[0]:.2f}, {object_pos[1]:.2f}, {object_pos[2]:.2f})")
+            # print(f"DEBUG my coord: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+            
+            # print(f"DEBUG before yaw: {yaw_0:.2f}")
+
+            theta1 = math.atan2(object_pos[1]-pos[1],object_pos[0]-pos[0])
+            # theta2 = theta1-math.pi-math.pi/2
+
+            # print(f"DEBUG theta to move: {theta1:.2f}")
+            # final = list(self.p.getEulerFromQuaternion(orn))
+            # final[2] = theta2
+            # self.p.resetBasePositionAndOrientation(self.pupper_body_uid, pos, self.p.getQuaternionFromEuler(final))
+
+            # pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
+            # yaw = self.p.getEulerFromQuaternion(orn)[2]
+            # print(f"DEBUG after yaw: {yaw:.2f}")
+            def limit_fn(x):
+                if x> 2*math.pi or x < -2*math.pi:
+                    raise Exception(f"limit_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
+                if -math.pi < x and x < math.pi:
+                    return x
+                elif math.pi < x:
+                    return -math.pi + (x%math.pi)
+                else:
+                    return math.pi + (x%-math.pi)
+            def wrap_around_fn(x):
+                if x> 2*math.pi or x < -2*math.pi:
+                    raise Exception(f"wrap_around_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
+                if -math.pi < x and x < math.pi:
+                    return x
+                elif math.pi < x:
+                    return -2*math.pi + x
+                else:
+                    return 2*math.pi + x
+
+            a_hat, b_hat = 0.99834, 1.5696
+            calculated_yaw = theta1*a_hat + b_hat
+            calculated_yaw = limit_fn(calculated_yaw)
+            delta_yaw = wrap_around_fn(calculated_yaw-yaw_0)
+            # print(f"DEBUG calculated final yaw: {calculated_yaw:.2f}")
+            # print(f"DEBUG calculated delta_yaw: {delta_yaw:.4f}")
+            # print(f"DEBUG actual delta_yaw: {wrap_around_fn(yaw-yaw_0):.4f}")
+            
+            return delta_yaw, min_dist
         else:
             if (self.cam_skip>self.cam_skip_frames):
                 agent_pos, agent_orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
