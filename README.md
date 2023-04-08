@@ -45,7 +45,7 @@ When running simulator:
     2. self.r_alpha: Similar as above but for the yaw value. Default: 0.1
     3. self.eps: The distance at which pupper stops. Default: 0.5
     4. self.slow_down_distance: Deprecated. Pupper starts slowing down at this distance
-    5. 
+
 
 NB. it may be that the pupper doesnt work. thats because we're working on it to add functionalities so it may cause pupper to crash :)
 
