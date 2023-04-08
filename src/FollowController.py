@@ -17,7 +17,10 @@ class FollowController(Controller):
 
         self.l_alpha = 0.15
         self.r_alpha = 0.1
-
+        
+        self.eps = 0.5
+        self.slow_down_distance = 1.0
+        
         # probably from config file to get cam_skip_frames, distance 
         self.camera_module = Camera_serial(cam_skip_frames=100, distance=100)
 
@@ -48,8 +51,7 @@ class FollowController(Controller):
             if self.following:
                 delta_yaw, depth = self.camera_module.get_camera_details()
                 
-                self.eps = 0.5
-                self.slow_down_distance = 1.0
+                
 
                 def depth_fn(d):
                     # v1. slows down linearly between slow_down_distance and eps
