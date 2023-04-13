@@ -17,7 +17,10 @@ class FollowController(Controller):
 
         self.l_alpha = 0.15
         self.r_alpha = 0.1
-
+        
+        self.eps = 0.5
+        self.slow_down_distance = 1.0
+        
         # probably from config file to get cam_skip_frames, distance 
         self.camera_only = False
         self.camera_module = Camera_serial(cam_skip_frames=100, distance=100, show_camera=self.camera_only)
