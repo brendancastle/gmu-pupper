@@ -6,13 +6,8 @@ import traceback
 print(sys.path)
 print(os.getcwd())
 
-try:    
-    # from src.stanford_lib.FollowController import FollowController
-    from src.stanford_lib.FollowController import FollowController
-    print("Imported!")
-except Exception as e:
-    print("fuck", traceback.format_exc())
-        
+
+from src.stanford_lib.FollowController import FollowController
 from src.stanford_lib.JoystickInterface import JoystickInterface
 from src.stanford_lib.State import State
 from src.djipupper import HardwareInterface
