@@ -1,0 +1,3 @@
+<launch>
+    <node name="pupper_controller_node" pkg="pupper_controller" type="pupper_controller.py" output="screen"/>
+</launch>

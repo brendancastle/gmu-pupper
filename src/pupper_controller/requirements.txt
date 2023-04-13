@@ -1,0 +1,2 @@
+#there are more but this was the one that caused dependency issues
+hid==1.0.4 
