@@ -13,7 +13,7 @@ PYBULLET_KD_GAIN = 0.2
 
 class Camera_serial:
 
-    def __init__(self, cam_skip_frames, distance, show_camera=False):
+    def __init__(self, cam_skip_frames, distance, show_camera=True):
         self.cam_skip=0
         self.cam_skip_frames = cam_skip_frames
         self.distance = distance
@@ -48,23 +48,26 @@ class Camera_serial:
 
         if show_camera:
             self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 1)
+            self.distance_calculated_from_pybullet = False
+        else:
+            self.distance_calculated_from_pybullet = True
 
-        self.distance_calculated_from_pybullet = True
-        
+        self.prev_pos = None
 
     def get_camera_details(self):
 
         if self.distance_calculated_from_pybullet:
             max_distance = 10000
-
+            cone_id = None
             for i in range (self.p.getNumBodies()):
                 b = self.p.getBodyUniqueId(i)
                 if self.p.getBodyInfo(b)[1]==b'cone':
                     cone_id = b
                     break
-
+            if cone_id is None:
+                return None, None
             closest_points = self.p.getClosestPoints(self.pupper_body_uid, cone_id, max_distance)
-
+            
             min_dist = max_distance
             object_pos = None
             for i in range(len(closest_points)):
@@ -72,11 +75,16 @@ class Camera_serial:
                     min_dist = closest_points[i][8]
                     object_pos = closest_points[i][6]
             
+            if object_pos is not None:
+                self.prev_pos = object_pos
+            
+            if self.prev_pos is None:
+                return None, None
 
             pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
             yaw_0 = self.p.getEulerFromQuaternion(orn)[2]
             
-            theta1 = math.atan2(object_pos[1]-pos[1],object_pos[0]-pos[0])
+            theta1 = math.atan2(self.prev_pos[1]-pos[1],self.prev_pos[0]-pos[0])
             def limit_fn(x):
                 if x> 2*math.pi or x < -2*math.pi:
                     raise Exception(f"limit_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
