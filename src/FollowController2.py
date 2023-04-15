@@ -5,7 +5,7 @@ import numpy as np
 from get_camera import Camera_serial
 
 class FollowController(Controller):
-    def __init__(self, config, inverse_kinematics):
+    def __init__(self, config, inverse_kinematics, automated=False):
         super().__init__(config, inverse_kinematics)
 
         self.in_follow_state = False
@@ -27,6 +27,9 @@ class FollowController(Controller):
 
         self.goal = None
         
+        self.automated = automated
+        self.in_follow_state = automated
+
     def depth_fn(self, d):
         if d > self.eps:
             return 1
@@ -47,17 +50,16 @@ class FollowController(Controller):
         self.goal = (object_center, depth)
 
     def run(self, state, command):
-        if command.follow_event:
-            if self.in_follow_state == False:
-                self.in_follow_state = True
-                print("t pressed, entered follow state")
-            else:
-                self.in_follow_state = False
-                command.stand_event = True
-                super().run(state, command)
-                print("t pressed, exited follow state")
-
-
+        if not self.automated:
+            if command.follow_event:
+                if self.in_follow_state == False:
+                    self.in_follow_state = True
+                    print("t pressed, entered follow state")
+                else:
+                    self.in_follow_state = False
+                    command.stand_event = True
+                    super().run(state, command)
+                    print("t pressed, exited follow state")
 
         if self.in_follow_state:
             # object_center, depth = self.camera_module.get_camera_details() 

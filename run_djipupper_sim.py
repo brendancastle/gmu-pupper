@@ -31,7 +31,7 @@ def main(FLAGS):
     hardware_interface = HardwareInterface.HardwareInterface(port=SERIAL_PORT)
 
     # Create controller and user input handles
-    controller = FollowController(config, four_legs_inverse_kinematics)
+    controller = FollowController(config, four_legs_inverse_kinematics, automated=True)
     state = State(height=config.default_z_ref)
     print("Creating joystick listener...", end="")
     
