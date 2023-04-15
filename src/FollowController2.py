@@ -43,6 +43,9 @@ class FollowController(Controller):
         else:
             return 0 
 
+    def set_goal(self, object_center, depth):
+        self.goal = (object_center, depth)
+
     def run(self, state, command):
         if command.follow_event:
             if self.in_follow_state == False:
@@ -53,17 +56,20 @@ class FollowController(Controller):
                 command.stand_event = True
                 super().run(state, command)
                 print("t pressed, exited follow state")
-        if self.in_follow_state:
-            object_center, depth = self.camera_module.get_camera_details() 
 
-            if depth is None and self.goal is None:
+
+
+        if self.in_follow_state:
+            # object_center, depth = self.camera_module.get_camera_details() 
+
+            if self.goal is None:
                 if state.behavior_state != BehaviorState.REST:
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
 
-            if object_center is not None and depth is not None:
-                self.goal = (object_center, depth)
+            # if object_center is not None and depth is not None:
+            #     self.goal = (object_center, depth)
             
             if self.goal is not None:
                 delta_yaw = self.yaw_from_coords(self.goal[0])

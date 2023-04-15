@@ -58,8 +58,6 @@ class Camera_serial:
 
     def get_camera_details(self):
         if self.return_true_output:
-
-
             return None, None
         else:
                 
