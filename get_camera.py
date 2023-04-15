@@ -21,15 +21,12 @@ class Camera_serial:
         self.img_w, self.img_h = 120, 80
 
         self._timeout = 0
-        self._written = None
-        self._line_term = '\r\n'
         self._rate = 0.01
         debug(f'Setup get_camera write pusher')
         print("creating pupper drive system")
         
         self.p = bullet_client.BulletClient()
         self.pupper_body_uid = -1
-        self.pupper_link_indices=[]
         self.p.setTimeStep(0.001)
         #self.p.setPhysicsEngineParameter(numSubSteps=1)
 
@@ -41,23 +38,48 @@ class Camera_serial:
             found_pupper_sim = True
             self.pupper_body_uid = b
             
-        self.time_stamp = 0
         if not found_pupper_sim:
           sys.exit("Error: Cannot find pupper, is pupper_server running?")
         #self.p.configureDebugVisualizer(rgbBackground=[0,1,0])
 
+
         if show_camera:
             self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 1)
             self.distance_calculated_from_pybullet = False
+            self.return_true_output = True
         else:
             self.distance_calculated_from_pybullet = True
+            self.return_true_output = False
+            self.prev_pos = None
 
-        self.prev_pos = None
-
-        self.return_true_output = return_true_output
+        
 
     def get_camera_details(self):
         if self.return_true_output:
+            if (self.cam_skip>self.cam_skip_frames):
+                agent_pos, agent_orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
+
+                yaw = self.p.getEulerFromQuaternion(agent_orn)[0]
+                xA, yA, zA = agent_pos
+                zA = zA + 0.07
+                xA = xA +0.09
+
+                xB = xA + math.cos(yaw)*self.distance
+                yB = yA + math.sin(yaw)*self.distance
+                zB = zA 
+                
+                view_matrix = self.p.computeViewMatrix(cameraEyePosition=[xA,yA,zA], cameraTargetPosition=[xB,yB,zB], cameraUpVector=[0,0,1.0])
+
+                projection_matrix = self.p.computeProjectionMatrixFOV(fov=90, aspect=1.5, nearVal=0.02, farVal=3.5)
+                imgs = self.p.getCameraImage(self.img_w, self.img_h, view_matrix, projection_matrix, renderer=self.p.ER_BULLET_HARDWARE_OPENGL)
+                _,_, rgb, depth, segmentation = imgs
+                self.cam_skip = 0
+                print("type(segmentation):", type(segmentation))
+                print("type(depth):", type(depth))
+                print("type(rgb):", type(rgb))
+                return None, None
+            self.cam_skip += 1
+            
             return None, None
         else:
                 
@@ -115,26 +137,4 @@ class Camera_serial:
                 delta_yaw = wrap_around_fn(calculated_yaw-yaw_0)
                 
                 return delta_yaw, min_dist
-            else:
-                if (self.cam_skip>self.cam_skip_frames):
-                    agent_pos, agent_orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
-
-                    yaw = self.p.getEulerFromQuaternion(agent_orn)[0]
-                    xA, yA, zA = agent_pos
-                    zA = zA + 0.07
-                    xA = xA +0.09
-
-                    xB = xA + math.cos(yaw)*self.distance
-                    yB = yA + math.sin(yaw)*self.distance
-                    zB = zA 
-                    
-                    view_matrix = self.p.computeViewMatrix(cameraEyePosition=[xA,yA,zA], cameraTargetPosition=[xB,yB,zB], cameraUpVector=[0,0,1.0])
-
-                    projection_matrix = self.p.computeProjectionMatrixFOV(fov=90, aspect=1.5, nearVal=0.02, farVal=3.5)
-                    imgs = self.p.getCameraImage(self.img_w, self.img_h, view_matrix, projection_matrix, renderer=self.p.ER_BULLET_HARDWARE_OPENGL)
-                    _,_, rgb, depth, segmentation = imgs
-                    self.cam_skip = 0
-
-                    return rgb, depth
-                self.cam_skip += 1
-                return None, None
+           

@@ -1,7 +1,8 @@
 import numpy as np
 import time
 from src.Controller import Controller
-from src.FollowController import FollowController
+# from src.FollowController import FollowController
+from src.FollowController2 import FollowController
 #from src.JoystickInterfacePyGame import JoystickInterface
 #from src.JoystickInterface import JoystickInterface
 from src.KeyboardInterfacePyBullet import JoystickInterface
