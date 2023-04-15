@@ -57,7 +57,7 @@ class PupperObjectDetector:
         self.pipeline = pipeline
         self.config = config
 
-        self.detectionsPublisher = rospy.Publisher("pupper_detections_publisher", Detections)
+        self.detectionsPublisher = rospy.Publisher("pupper_detections", Detections)
         testPublisher = rospy.Publisher("test_publisher", Test)
         t = Test()
         t.number = 86

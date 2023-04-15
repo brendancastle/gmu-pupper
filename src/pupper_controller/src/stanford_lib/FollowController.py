@@ -17,11 +17,8 @@ class FollowController(Controller):
         self.r_alpha = 0.1
         
         self.eps = 0.5
-        self.slow_down_distance = 1.0
+        self.slow_down_distance = 1.0        
         
-        # probably from config file to get cam_skip_frames, distance 
-        self.camera_module = Camera_serial(cam_skip_frames=100, distance=100)
-
     
     def run(self, state, command):
         if command.follow_event:

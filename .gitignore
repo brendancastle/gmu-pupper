@@ -3,3 +3,5 @@ LICENSE
 *.jpg
 saad_thoughts.txt
 *.pyc
+build/
+devel/
