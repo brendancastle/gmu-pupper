@@ -22,13 +22,14 @@ class FollowController(Controller):
         # self.slow_down_distance = 1.0
         
         # probably from config file to get cam_skip_frames, distance 
-        self.camera_only = False
-        self.camera_module = Camera_serial(cam_skip_frames=100, distance=100, show_camera=self.camera_only, return_true_output=True)
+        self.camera_only = True 
+        # cam_skip_frames =-1 for checking at every time step.
+        self.camera_module = Camera_serial(cam_skip_frames=-1, distance=100, show_camera=self.camera_only)
 
         self.goal = None
-        
         self.automated = automated
         self.in_follow_state = automated
+        self.init_run = False
 
     def depth_fn(self, d):
         if d > self.eps:
@@ -36,9 +37,9 @@ class FollowController(Controller):
         else:
             return 0
         
-    def yaw_from_coords(self, xy, depth): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
+    def yaw_from_coords(self, yx, depth): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
         self.pupper_center = 60 # assuming pupper is at center of camera. width of camera: 120
-        x,_=xy
+        _,x=yx
         if x > self.pupper_center: # on right
             return 1
         elif x < self.pupper_center: # on lefr
@@ -61,20 +62,25 @@ class FollowController(Controller):
                     super().run(state, command)
                     print("t pressed, exited follow state")
 
-        if self.in_follow_state:
-            # object_center, depth = self.camera_module.get_camera_details() 
 
+        # self.camera_module.get_camera_details() 
+
+        if self.in_follow_state:
+            object_center, depth = self.camera_module.get_camera_details() 
+            # print("object_center, depth:",object_center, depth)
+            # print(f"goal_pixels: {object_center}, depth: {depth:.2f}")
             if self.goal is None:
-                if state.behavior_state != BehaviorState.REST:
+                if state.behavior_state != BehaviorState.REST or not self.init_run:
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
+                    self.init_run=True # if this isnt called the pupper never stands if there is no goal 
 
-            # if object_center is not None and depth is not None:
-            #     self.goal = (object_center, depth)
+            if object_center is not None and depth is not None:
+                self.goal = (object_center, depth)
             
             if self.goal is not None:
-                delta_yaw = self.yaw_from_coords(self.goal[0])
+                delta_yaw = self.yaw_from_coords(self.goal[0], self.goal[1])
                 how_far = self.depth_fn(self.goal[1])
                 
                 if how_far != 0:  
@@ -84,10 +90,10 @@ class FollowController(Controller):
                     command.horizontal_velocity = np.array([x_vel, y_vel])
         
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
-                    command.yaw_rate = self.rx_ * self.config.max_yaw_rate
+                    command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+
                     if state.behavior_state != BehaviorState.TROT:
                         command.trot_event = True
-
                     super().run(state, command)
                 else:
                     if state.behavior_state != BehaviorState.REST:

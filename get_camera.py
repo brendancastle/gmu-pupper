@@ -11,9 +11,11 @@ import math
 PYBULLET_KP_GAIN = 4
 PYBULLET_KD_GAIN = 0.2
 
+import numpy as np
+
 class Camera_serial:
 
-    def __init__(self, cam_skip_frames, distance, show_camera=True, return_true_output=False):
+    def __init__(self, cam_skip_frames, distance, show_camera=True):
         self.cam_skip=0
         self.cam_skip_frames = cam_skip_frames
         self.distance = distance
@@ -45,10 +47,10 @@ class Camera_serial:
 
         if show_camera:
             self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 1)
-            self.distance_calculated_from_pybullet = False
+            # self.distance_calculated_from_pybullet = False
             self.return_true_output = True
         else:
-            self.distance_calculated_from_pybullet = True
+            # self.distance_calculated_from_pybullet = True
             self.return_true_output = False
             self.prev_pos = None
 
@@ -59,7 +61,8 @@ class Camera_serial:
             if (self.cam_skip>self.cam_skip_frames):
                 agent_pos, agent_orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
 
-                yaw = self.p.getEulerFromQuaternion(agent_orn)[0]
+                yaw = self.p.getEulerFromQuaternion(agent_orn)[2]
+                yaw = yaw - math.pi/2 # simulator is wonky. yaw is offset by math.pi/2
                 xA, yA, zA = agent_pos
                 zA = zA + 0.07
                 xA = xA +0.09
@@ -74,67 +77,77 @@ class Camera_serial:
                 imgs = self.p.getCameraImage(self.img_w, self.img_h, view_matrix, projection_matrix, renderer=self.p.ER_BULLET_HARDWARE_OPENGL)
                 _,_, rgb, depth, segmentation = imgs
                 self.cam_skip = 0
-                print("type(segmentation):", type(segmentation))
-                print("type(depth):", type(depth))
-                print("type(rgb):", type(rgb))
-                return None, None
+
+                # cone should be id 2 in segmentation matrix
+                cone_pixels = np.where(segmentation == 2)
+                if len(cone_pixels[0]) == 0:
+                    print("cone not in view or not of id 2")
+                    print("seg unique values + counts:", np.unique(segmentation, return_counts=True))
+                    return None, None 
+                minx, maxx = cone_pixels[0].min(), cone_pixels[0].max()
+                miny, maxy = cone_pixels[1].min(), cone_pixels[1].max()
+                
+                center_pixel = ((maxx+minx)//2, (miny+maxy)//2)
+                depth_at_center = depth[center_pixel[0], center_pixel[0]]
+                return center_pixel, depth_at_center
+                
             self.cam_skip += 1
             
             return None, None
-        else:
+        else: # this is to use coordinates
                 
-            if self.distance_calculated_from_pybullet:
-                max_distance = 10000
-                cone_id = None
-                for i in range (self.p.getNumBodies()):
-                    b = self.p.getBodyUniqueId(i)
-                    if self.p.getBodyInfo(b)[1]==b'cone':
-                        cone_id = b
-                        break
-                if cone_id is None:
-                    return None, None
-                closest_points = self.p.getClosestPoints(self.pupper_body_uid, cone_id, max_distance)
-                
-                min_dist = max_distance
-                object_pos = None
-                for i in range(len(closest_points)):
-                    if min_dist > closest_points[i][8]:
-                        min_dist = closest_points[i][8]
-                        object_pos = closest_points[i][6]
-                
-                if object_pos is not None:
-                    self.prev_pos = object_pos
-                
-                if self.prev_pos is None:
-                    return None, None
+            # if self.distance_calculated_from_pybullet:
+            max_distance = 10000
+            cone_id = None
+            for i in range (self.p.getNumBodies()):
+                b = self.p.getBodyUniqueId(i)
+                if self.p.getBodyInfo(b)[1]==b'cone':
+                    cone_id = b
+                    break
+            if cone_id is None:
+                return None, None
+            closest_points = self.p.getClosestPoints(self.pupper_body_uid, cone_id, max_distance)
+            
+            min_dist = max_distance
+            object_pos = None
+            for i in range(len(closest_points)):
+                if min_dist > closest_points[i][8]:
+                    min_dist = closest_points[i][8]
+                    object_pos = closest_points[i][6]
+            
+            if object_pos is not None:
+                self.prev_pos = object_pos
+            
+            if self.prev_pos is None:
+                return None, None
 
-                pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
-                yaw_0 = self.p.getEulerFromQuaternion(orn)[2]
-                
-                theta1 = math.atan2(self.prev_pos[1]-pos[1],self.prev_pos[0]-pos[0])
-                def limit_fn(x):
-                    if x> 2*math.pi or x < -2*math.pi:
-                        raise Exception(f"limit_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
-                    if -math.pi < x and x < math.pi:
-                        return x
-                    elif math.pi < x:
-                        return -math.pi + (x%math.pi)
-                    else:
-                        return math.pi + (x%-math.pi)
-                def wrap_around_fn(x):
-                    if x> 2*math.pi or x < -2*math.pi:
-                        raise Exception(f"wrap_around_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
-                    if -math.pi < x and x < math.pi:
-                        return x
-                    elif math.pi < x:
-                        return -2*math.pi + x
-                    else:
-                        return 2*math.pi + x
+            pos, orn = self.p.getBasePositionAndOrientation(self.pupper_body_uid)
+            yaw_0 = self.p.getEulerFromQuaternion(orn)[2]
+            
+            theta1 = math.atan2(self.prev_pos[1]-pos[1],self.prev_pos[0]-pos[0])
+            def limit_fn(x):
+                if x> 2*math.pi or x < -2*math.pi:
+                    raise Exception(f"limit_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
+                if -math.pi < x and x < math.pi:
+                    return x
+                elif math.pi < x:
+                    return -math.pi + (x%math.pi)
+                else:
+                    return math.pi + (x%-math.pi)
+            def wrap_around_fn(x):
+                if x> 2*math.pi or x < -2*math.pi:
+                    raise Exception(f"wrap_around_fn not defined for x>2pi or x<-2pi. value of x: {x:.4f}")
+                if -math.pi < x and x < math.pi:
+                    return x
+                elif math.pi < x:
+                    return -2*math.pi + x
+                else:
+                    return 2*math.pi + x
 
-                a_hat, b_hat = 0.99834, 1.5696
-                calculated_yaw = theta1*a_hat + b_hat
-                calculated_yaw = limit_fn(calculated_yaw)
-                delta_yaw = wrap_around_fn(calculated_yaw-yaw_0)
-                
-                return delta_yaw, min_dist
-           
+            a_hat, b_hat = 0.99834, 1.5696
+            calculated_yaw = theta1*a_hat + b_hat
+            calculated_yaw = limit_fn(calculated_yaw)
+            delta_yaw = wrap_around_fn(calculated_yaw-yaw_0)
+            
+            return delta_yaw, min_dist
+        
