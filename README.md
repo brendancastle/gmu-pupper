@@ -31,8 +31,9 @@ When running simulator:
 2. robot automatically starts moving towards cone in view
 
 if automated = false on line 35 of run_djipupper_sim.py, after activating:
+
 2. press `e` to start trotting and position robot wherever
-3. when ready press `t` to start "follow mode". robot automatically starts going towards cone in view
+3. press `t` to start "follow mode". robot automatically starts going towards cone in view
 4. press `t` again to exit "follow mode"
 5. now you can manually take over the robot by pressing `e`
 
@@ -45,6 +46,8 @@ if automated = false on line 35 of run_djipupper_sim.py, after activating:
     1. self.l_alpha: Its like a slow up/ slow down in the forward/backward direction. Default value: 0.15
     2. self.r_alpha: Similar as above but for the yaw value. Default: 0.1
     3. self.eps: The distance at which pupper stops. Default: 0.5. Doesnt work - depth needs tuning
+* Config.py:
+    1. self.max_yaw_rate. Default 2.5, changed to 0.5. controls max turning rate. changed to 0.5 for stability
     
 
 NB. it may be that the pupper doesnt work. thats because we're working on it to add functionalities so it may cause pupper to crash :)
