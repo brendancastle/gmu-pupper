@@ -29,7 +29,7 @@ try:
 except ImportError as e:
     print("Error importing libs...", traceback.format_exc())
 
-from pupper_object_detectison.msg import Detection, Detections, Test
+from pupper_object_detection.msg import Detection, Detections, Test
 
 DIRECTORY = "logs/"
 FILE_DESCRIPTOR = "walking"
@@ -122,7 +122,7 @@ class PupperController:
                         continue
                 elif state.activation == 1:
                     now = time.time()
-                    if FLAGS.log:
+                    if self.log:
                         any_data = self.hardware_interface.log_incoming_data(log_file)
                         if any_data:
                             rospy.loginfo(any_data["ts"])
@@ -158,12 +158,5 @@ class PupperController:
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--zero", help="zero the motors", action="store_true")
-    # parser.add_argument("--log", help="log pupper data to file", action="store_true")
-    # parser.add_argument(
-    #     "--home", help="home the motors (moves the legs)", action="store_true"
-    # )
-    # FLAGS = parser.parse_args()
     pupperController = PupperController()
     pupperController.start()

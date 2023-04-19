@@ -7,3 +7,5 @@ from setuptools import find_packages
 setup_args = generate_distutils_setup(     
      packages=find_packages(),
 )
+
+setup(**setup_args)

@@ -32,6 +32,7 @@
   <!-- Dependencies can be catkin packages or system dependencies -->
   <depend>rospy</depend>
   <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
   <!-- Examples: -->
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
   <!--   <depend>roscpp</depend> -->
@@ -54,6 +55,7 @@
   <build_depend>roslaunch</build_depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
