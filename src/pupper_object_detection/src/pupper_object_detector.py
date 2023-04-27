@@ -22,7 +22,8 @@ from sensor_msgs.msg import Image
 class PupperObjectDetector:
 
     def __init__(self):
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+        # model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True) # <- pretrained base model
+        model = torch.hub.load('ultralytics/yolov5', 'custom', 'model_state_dicts/fine_tuned_yolov5s.pt') # <- finetuned model
     
         
         model.conf = 0.50  # NMS confidence threshold
