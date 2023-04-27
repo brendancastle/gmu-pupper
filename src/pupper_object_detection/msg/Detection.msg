@@ -6,4 +6,4 @@ int32 ymax
 float32 confidence
 int32 classNumber
 string className
-float32 depthAtCenter
+float32 depthAtCenter #millimeters I think?

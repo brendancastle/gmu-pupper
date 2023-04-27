@@ -2,6 +2,8 @@ from src.stanford_lib.Controller import Controller
 from src.stanford_lib.State import BehaviorState
 import numpy as np
 
+from pupper_object_detection.msg import Detection
+
 class FollowController(Controller):
     def __init__(self, config, inverse_kinematics):
         super().__init__(config, inverse_kinematics)
@@ -20,6 +22,12 @@ class FollowController(Controller):
         self.slow_down_distance = 1.0        
         
     
+    def updateTarget(self, detection:Detection):
+        self.depthOfTarget = detection.depthAtCenter
+        x = detection.xmin + (detection.xmax - detection.xmin)/2
+        y = detection.ymin + (detection.ymax - detection.ymin)/2        
+        self.centerPointOfTarget = (x,y)        
+
     def run(self, state, command):
         if command.follow_event:
             if self.in_follow_state == False:
@@ -45,9 +53,6 @@ class FollowController(Controller):
 
             if self.following:
                 delta_yaw, depth = 0,0
-                
-                
-
                 def depth_fn(d):
                     # v1. slows down linearly between slow_down_distance and eps
                     # if d > self.slow_down_distance:

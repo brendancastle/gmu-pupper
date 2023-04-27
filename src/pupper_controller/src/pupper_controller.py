@@ -1,9 +1,6 @@
 import rospy
 import datetime
 import argparse
-
-
-
 import numpy as np
 import time
 import os

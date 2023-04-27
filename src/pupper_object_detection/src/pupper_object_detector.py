@@ -50,14 +50,14 @@ class PupperObjectDetector:
         # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 6)
         # config.enable_stream(rs.stream.color, 320, 240, rs.format.bgr8, 6)
         
-        model.conf = 0.75  # NMS confidence threshold
+        model.conf = 0.50  # NMS confidence threshold
         model.iou = 0.45  # NMS IoU threshold
         model.agnostic = False  # NMS class-agnostic
         model.multi_label = False  # NMS multiple labels per box
         # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
-        model.classes = None
-        model.max_det = 1000  # maximum number of detections per image
-        model.amp = False  # Automatic Mixed Precision (AMP) inference
+        model.classes = [64,32]
+        model.max_det = 5  # maximum number of detections per image
+        model.amp = True  # Automatic Mixed Precision (AMP) inference
 
         self.model = model
         # self.pipeline = pipeline
@@ -85,8 +85,8 @@ class PupperObjectDetector:
         
         
         self.queue.put((rgbImage,depthImage))
-        rospy.logdebug_throttle(1, f"rgb = {rgbImage.encoding} \t depth = {depthImage.encoding}")
-        rospy.logdebug_throttle(1, f"Added frames to queue. Size ~= {self.queue.qsize()}")
+        # rospy.loginfo_throttle(1, f"rgb = {rgbImage.encoding} \t depth = {depthImage.encoding}")
+        # rospy.loginfo_throttle(1, f"Added frames to queue. Size ~= {self.queue.qsize()}")
 
 
     def handleRgbFrame(self, rgbFrame:Image):
@@ -105,7 +105,7 @@ class PupperObjectDetector:
         uint8[] data
         """
         
-        rospy.loginfo(f"RGB: {rgbFrame.header}")
+        # rospy.loginfo(f"RGB: {rgbFrame.header}")
         return
 
     def handleAlignedDepthFrame(self, alignedDepthFrame):
@@ -124,44 +124,45 @@ class PupperObjectDetector:
         uint8[] data
         """
         
-        rospy.loginfo(f"Depth: {alignedDepthFrame.header}")
+        # rospy.loginfo(f"Depth: {alignedDepthFrame.header}")
         return
 
     def runInference(self, color_image:Image, depth_image:Image):        
-        start = time.time()            
         # Convert images to numpy arrays
-        depth_frame = self.cv_bridge.imgmsg_to_cv2(depth_image, depth_image.encoding)
+        depth_frame = self.cv_bridge.imgmsg_to_cv2(depth_image, desired_encoding="passthrough")
         color_frame = self.cv_bridge.imgmsg_to_cv2(color_image, color_image.encoding)
+
         
         depth_image = np.asanyarray(depth_frame)
         color_image = np.asanyarray(color_frame)
+        # depth_image = (480, 640), color_image = (480, 640, 3)
+
+        # rospy.loginfo(f"depth_image = {depth_image.shape}, color_image = {color_image.shape}")
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image), cv2.COLORMAP_COOL)
         depth_colormap_dim = depth_colormap.shape
         color_colormap_dim = color_image.shape
 
         color_image = color_image[:, :, [2, 1, 0]]
         # input_tensor = preprocess(color_image)
 
-        threshold = 0.75
+        
 
-        # img = preprocess(color_image)
-
-        rospy.loginfo("Passing frame through model...")
+        rospy.logdebug("Passing frame through model...")
         results = self.model([color_image], size=640)
-        rospy.loginfo("Done with inference")
+        rospy.logdebug("Done with inference")
 
         # results.print()
         # results.save()  # or .show()
         detections = []
         
-        
         image = color_image.copy()
+        
 
         for box in results.xyxy[0]:
-            if box[4] < threshold:
-                continue
+            confidence = box[4]
+
 
             # if box[4]>=90:
             # rospy.loginfo(f"Drawing box for {box[5]}")
@@ -172,11 +173,14 @@ class PupperObjectDetector:
             bgr_color = (0, 0, 0)
             start_point = [xA, yA]
             end_point = [xB, yB]
-            centerPoint = (xB - xA, yB-yA)
-            depthAtCenter = depth_frame.get_distance(centerPoint[0], centerPoint[1])
+            centerPoint = (int(yA+(yB-yA)/2),int(xA+(xB - xA)/2))
+            # rospy.loginfo(depth_image.shape)            
+            depthAtCenter = depth_image.item(centerPoint)
+            # rospy.loginfo(depthAtCenter)
+            className = self.model.names[int(box[5])]
+            rospy.loginfo(f"Detected a {int(box[5])}: {className}, Centerpoint: {centerPoint} Depth: {depthAtCenter}mm / {depthAtCenter*0.0393701}\" Confidence: {confidence}")
             if self.displayImages:
                 image = cv2.rectangle(image, start_point, end_point, bgr_color, 3)
-                className = self.model.names[int(box[5])]
                 image = cv2.putText(image, f"{className} {centerPoint}", start_point, cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 2, cv2.LINE_AA)
 
             detection = Detection()
@@ -192,48 +196,43 @@ class PupperObjectDetector:
         detectionsMsg = Detections()
         detectionsMsg.detections = detections
         self.detectionsPublisher.publish(detectionsMsg)
-        # if totalFrames > 0 and totalRunTime > 0:
-        #     averageFps = totalFrames / totalRunTime
-        #     image = cv2.putText(image, str(averageFps), [
-        #                         10, 20], cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        if self.totalFrames > 0 and self.totalRunTime > 0:
+            averageFps = self.totalFrames / self.totalRunTime
+            image = cv2.putText(image, str(averageFps), [10, 20], cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1, cv2.LINE_AA)
         # rospy.loginfo(results.pandas().xyxy[0])  # im1 predictions (pandas)
 
-        # if self.displayImages:
-        #     if depth_colormap_dim != color_colormap_dim:
-        #         resized_color_image = cv2.resize(image, dsize=(
-        #             depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-        #         images = np.hstack((resized_color_image, depth_colormap))
-        #     else:
-        #         images = np.hstack((image, depth_colormap))
+        if self.displayImages:
+            if depth_colormap_dim != color_colormap_dim:
+                resized_color_image = cv2.resize(image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
+                images = np.hstack((resized_color_image, depth_colormap))
+            else:
+                images = np.hstack((image, depth_colormap))
 
-        # if self.displayImages:
-        #     # Show images
-        #     cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        #     cv2.imshow('RealSense', image)
-        #     cv2.waitKey(1)
-
-        
-        # rospy.loginfo(f"Frame time: {end-start}")
+        if self.displayImages:
+            # Show images
+            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('RealSense', images)
+            cv2.waitKey(1)
 
     def detectionWorker(self):
-        totalFrames = 0
-        totalRunTime = 0
+        self.totalFrames = 0
+        self.totalRunTime = 0
 
         while not self.stopSignal.is_set():            
             (rgbFrame,depthFrame) = self.queue.get()
             start = time.time()
-            rospy.loginfo("Got frames...")
+            # rospy.loginfo("Got frames...")
             self.runInference(rgbFrame,depthFrame)
             end = time.time()        
             lastFrameTime = end-start
-            totalRunTime += lastFrameTime
-            totalFrames += 1
-            if totalFrames > 0 and totalRunTime > 0:
-                averageFps = totalFrames / totalRunTime
-                rospy.loginfo(f"FPS: {averageFps}")
+            self.totalRunTime += lastFrameTime
+            self.totalFrames += 1
+            if self.totalFrames > 0 and self.totalRunTime > 0:
+                averageFps = self.totalFrames / self.totalRunTime
+                # rospy.loginfo(f"FPS: {averageFps}")
 
     def start(self):
-        self.displayImages = False
+        self.displayImages = True
         self.synchronizer.registerCallback(self.handleFrames)        
         self.lock = threading.Lock()
         self.stopSignal = threading.Event()
