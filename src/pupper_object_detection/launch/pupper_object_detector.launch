@@ -1,3 +1,11 @@
 <launch>
-<node name="pupper_object_detector_node" pkg="pupper_object_detection" type="pupper_object_detector.py" output="screen"/>
+    <arg name="displayImages" type="bool" default="false"/>
+
+    <node 
+    name="pupper_object_detector_node" 
+    pkg="pupper_object_detection" 
+    type="pupper_object_detector.py" 
+    output="screen">
+    <param name="displayImages" value="$(arg displayImages)"/>
+    </node>
 </launch>

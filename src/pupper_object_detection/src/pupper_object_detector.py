@@ -23,32 +23,7 @@ class PupperObjectDetector:
 
     def __init__(self):
         model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-        
-
-        # jit model to take it from ~20fps to ~30fps
-        # net = torch.jit.script(net)
-        # Configure depth and color streams
-        # pipeline = rs.pipeline()
-        # config = rs.config()
-
-        # Get device product line for setting a supporting resolution
-        # pipeline_wrapper = rs.pipeline_wrapper(pipeline)
-        # # pipeline_profile = config.resolve(pipeline_wrapper)
-        # device = pipeline_profile.get_device()
-        # device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-        # found_rgb = False
-        # for s in device.sensors:
-        #     if s.get_info(rs.camera_info.name) == 'RGB Camera':
-        #         found_rgb = True
-        #         break      
-        # if not found_rgb:
-        #     rospy.loginfo("The demo requires Depth camera with Color sensor")
-        #     exit(0)
-
-        # config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 6)
-        # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 6)
-        # config.enable_stream(rs.stream.color, 320, 240, rs.format.bgr8, 6)
+    
         
         model.conf = 0.50  # NMS confidence threshold
         model.iou = 0.45  # NMS IoU threshold
@@ -60,18 +35,16 @@ class PupperObjectDetector:
         model.amp = True  # Automatic Mixed Precision (AMP) inference
 
         self.model = model
-        # self.pipeline = pipeline
-        # self.config = config
-
+        
         self.detectionsPublisher = rospy.Publisher("pupper_detections", Detections)
-        # rgbSubscriber = rospy.Subscriber("/camera/color/image_raw", Image, self.handleRgbFrame, queue_size=5)
-        # alignedDepthSubscriber = rospy.Subscriber("/camera/aligned_depth_to_color/image_raw", Image, self.handleAlignedDepthFrame, queue_size=5)
-
         rgbSubscriber = message_filters.Subscriber("/camera/color/image_raw", Image)
         alignedDepthSubscriber = message_filters.Subscriber("/camera/aligned_depth_to_color/image_raw", Image)
 
         # #frames are 30fps so look for things within 2/30 seconds of eachother?
+        # In practice it seems these tend to have identical timestamps
         self.synchronizer = message_filters.TimeSynchronizer([rgbSubscriber,alignedDepthSubscriber], 10, 2/30.0)
+        #Buffering two seconds of data if we want to do anything with that.
+        # In practice, we just grab the latest frame. 
         self.queue = queue.LifoQueue(maxsize=60) #keep 60 entries at most, 2 seconds of data.
         self.cv_bridge = CvBridge()
         
@@ -140,21 +113,14 @@ class PupperObjectDetector:
         # rospy.loginfo(f"depth_image = {depth_image.shape}, color_image = {color_image.shape}")
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image), cv2.COLORMAP_COOL)
-        depth_colormap_dim = depth_colormap.shape
-        color_colormap_dim = color_image.shape
+    
 
-        color_image = color_image[:, :, [2, 1, 0]]
-        # input_tensor = preprocess(color_image)
-
-        
+        color_image = color_image[:, :, [2, 1, 0]]        
 
         rospy.logdebug("Passing frame through model...")
         results = self.model([color_image], size=640)
         rospy.logdebug("Done with inference")
 
-        # results.print()
-        # results.save()  # or .show()
         detections = []
         
         image = color_image.copy()
@@ -163,9 +129,6 @@ class PupperObjectDetector:
         for box in results.xyxy[0]:
             confidence = box[4]
 
-
-            # if box[4]>=90:
-            # rospy.loginfo(f"Drawing box for {box[5]}")
             xB = int(box[2])
             xA = int(box[0])
             yB = int(box[3])
@@ -202,13 +165,14 @@ class PupperObjectDetector:
         # rospy.loginfo(results.pandas().xyxy[0])  # im1 predictions (pandas)
 
         if self.displayImages:
+            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image), cv2.COLORMAP_COOL)
+            depth_colormap_dim = depth_colormap.shape
+            color_colormap_dim = color_image.shape
             if depth_colormap_dim != color_colormap_dim:
                 resized_color_image = cv2.resize(image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
                 images = np.hstack((resized_color_image, depth_colormap))
             else:
-                images = np.hstack((image, depth_colormap))
-
-        if self.displayImages:
+                images = np.hstack((image, depth_colormap))        
             # Show images
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', images)
@@ -229,10 +193,10 @@ class PupperObjectDetector:
             self.totalFrames += 1
             if self.totalFrames > 0 and self.totalRunTime > 0:
                 averageFps = self.totalFrames / self.totalRunTime
-                # rospy.loginfo(f"FPS: {averageFps}")
+                rospy.loginfo(f"FPS: {averageFps}")
 
     def start(self):
-        self.displayImages = True
+        self.displayImages = rospy.get_param("/displayImages",False)
         self.synchronizer.registerCallback(self.handleFrames)        
         self.lock = threading.Lock()
         self.stopSignal = threading.Event()
