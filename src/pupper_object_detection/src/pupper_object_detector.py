@@ -19,19 +19,23 @@ from pupper_object_detection.msg import Detections, Detection, Test
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 
+import pathlib
+
 class PupperObjectDetector:
 
     def __init__(self):
-        # model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True) # <- pretrained base model
-        model = torch.hub.load('ultralytics/yolov5', 'custom', 'model_state_dicts/fine_tuned_yolov5s.pt') # <- finetuned model
-    
-        
-        model.conf = 0.50  # NMS confidence threshold
-        model.iou = 0.45  # NMS IoU threshold
+        model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True) # <- pretrained base model
+        modelPath = rospy.get_param("/pupper_object_detector_node/modelPath")
+        # model = torch.hub.load('ultralytics/yolov5', 'custom', modelPath) # <- finetuned model
+        rospy.loginfo("Model names: ")
+        rospy.loginfo(model.names)
+        # model.conf = 0.50  # NMS confidence threshold
+        # model.iou = 0.45  # NMS IoU threshold
         model.agnostic = False  # NMS class-agnostic
         model.multi_label = False  # NMS multiple labels per box
         # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
-        model.classes = [64,32]
+        # 32 = sports ball
+        model.classes = [32]
         model.max_det = 5  # maximum number of detections per image
         model.amp = True  # Automatic Mixed Precision (AMP) inference
 
@@ -59,8 +63,8 @@ class PupperObjectDetector:
         
         
         self.queue.put((rgbImage,depthImage))
-        # rospy.loginfo_throttle(1, f"rgb = {rgbImage.encoding} \t depth = {depthImage.encoding}")
-        # rospy.loginfo_throttle(1, f"Added frames to queue. Size ~= {self.queue.qsize()}")
+        rospy.loginfo_throttle(1, f"rgb = {rgbImage.encoding} \t depth = {depthImage.encoding}")
+        rospy.loginfo_throttle(1, f"Added frames to queue. Size ~= {self.queue.qsize()}")
 
 
     def handleRgbFrame(self, rgbFrame:Image):
@@ -116,10 +120,10 @@ class PupperObjectDetector:
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
     
 
-        color_image = color_image[:, :, [2, 1, 0]]        
+        # color_image = color_image[:, :, [2, 1, 0]]        
 
         rospy.logdebug("Passing frame through model...")
-        results = self.model([color_image], size=640)
+        results = self.model([color_image], size=320)
         rospy.logdebug("Done with inference")
 
         detections = []
@@ -156,7 +160,7 @@ class PupperObjectDetector:
             detection.className = className
             detection.classNumber = int(box[5])
             detections.append(detection)
-        
+        rospy.loginfo(f"Detected {len(detections)} objects")
         detectionsMsg = Detections()
         detectionsMsg.detections = detections
         self.detectionsPublisher.publish(detectionsMsg)
@@ -197,7 +201,7 @@ class PupperObjectDetector:
                 rospy.loginfo(f"FPS: {averageFps}")
 
     def start(self):
-        self.displayImages = rospy.get_param("/displayImages",False)
+        self.displayImages = rospy.get_param("pupper_object_detector_node/displayImages",False)
         self.synchronizer.registerCallback(self.handleFrames)        
         self.lock = threading.Lock()
         self.stopSignal = threading.Event()

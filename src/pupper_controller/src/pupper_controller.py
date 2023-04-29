@@ -34,21 +34,25 @@ FILE_DESCRIPTOR = "walking"
 
 class PupperController:
     def __init__(self) -> None:
-        self.log = rospy.get_param("/pupper_controller_node/log")
-        self.zero = rospy.get_param("/pupper_controller_node/zero")
-        self.home = rospy.get_param("/pupper_controller_node/home")
+        self.log = rospy.get_param("/pupper_controller_node/log", False)
+        self.zero = rospy.get_param("/pupper_controller_node/zero", False)
+        self.home = rospy.get_param("/pupper_controller_node/home", True)
+
         rospy.loginfo(f"log = {self.log}\tzero = {self.zero}\thome= {self.home}")
         config = Configuration()
+        self.config = Configuration()
+        self.config.max_x_velocity = 0.1
+        self.config.max_y_velocity = 0.1
         hardware_interface = HardwareInterface.HardwareInterface(port=SERIAL_PORT)
         time.sleep(0.1)
 
         # Create controller and user input handles
-        controller = FollowController(config, four_legs_inverse_kinematics)
+        controller = FollowController(config, four_legs_inverse_kinematics, automated=True)
         state = State(height=config.default_z_ref)
         rospy.loginfo("Creating joystick listener...", end="")
         joystick_interface = JoystickInterface(config)
         rospy.loginfo(f"Done.")
-
+    
         self.config = config
         self.hardware_interface = hardware_interface
         self.state = state
@@ -62,11 +66,13 @@ class PupperController:
         )
 
     def handleNewDetections(self, detectionsMsg: Detections):
-        rospy.logdebug(f"Received {len(detectionsMsg.detections)}")
+        rospy.loginfo(f"Received {len(detectionsMsg.detections)} detections")
+        [rospy.loginfo(detection for detection in detectionsMsg.detections)]
         detection = (
             detectionsMsg.detections[0] if len(detectionsMsg.detections) > 0 else None
         )
         if detection is not None:
+            rospy.loginfo("Updating taget")
             self.controller.updateTarget(detection)
 
     def start(self):
@@ -91,6 +97,9 @@ class PupperController:
         else:
             rospy.loginfo(f"Not zeroing motors!")
 
+        
+        self.hardware_interface.deactivate()
+            
         if self.home:
             rospy.loginfo(f"Homing motors...", end="", flush=True)
             self.hardware_interface.home_motors()
@@ -100,8 +109,11 @@ class PupperController:
         rospy.loginfo(f"Waiting for L1 to activate robot.")
 
         last_loop = time.time()
-        try:
-            while True:
+        self.state.activation = 1
+        self.state.activate_event = 1
+        
+        while not rospy.is_shutdown():
+            try:
                 state = self.state
                 if state.activation == 0:
                     time.sleep(0.02)
@@ -137,11 +149,14 @@ class PupperController:
                         self.hardware_interface.set_cartesian_positions(
                             state.final_foot_locations
                         )
-                        last_loop = now
-        except KeyboardInterrupt:
-            if self.log:
-                rospy.loginfo(f"Closing log file")
-                log_file.close()
+                        last_loop = now        
+            except KeyboardInterrupt:
+                break
+            
+        if self.log:
+            rospy.loginfo(f"Closing log file")
+            log_file.close()
+        
 
     def summarize_config(self):
         config = self.config
