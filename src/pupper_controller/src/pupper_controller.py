@@ -67,7 +67,6 @@ class PupperController:
 
     def handleNewDetections(self, detectionsMsg: Detections):
         rospy.loginfo(f"Received {len(detectionsMsg.detections)} detections")
-        [rospy.loginfo(detection for detection in detectionsMsg.detections)]
         detection = (
             detectionsMsg.detections[0] if len(detectionsMsg.detections) > 0 else None
         )
