@@ -1,0 +1,15 @@
+<launch>
+    <!-- <arg name="mode" default="_default_text_"> -->
+    <arg name="log" type="bool" default="true"/>
+    <arg name="zero" type="bool" default="false"/>
+    <arg name="home" type="bool" default="false"/>
+    <node 
+        name="pupper_controller_node" 
+        pkg="pupper_controller" 
+        type="pupper_controller.py" output="screen"
+    >
+        <param name="log" value="$(arg log)" /> 
+        <param name="zero" value="$(arg zero)" /> 
+        <param name="home" value="$(arg home)" /> 
+    </node>
+</launch>

@@ -1,0 +1,13 @@
+<launch>
+    <arg name="displayImages" default="false"/>
+
+    <node 
+    name="pupper_object_detector_node" 
+    pkg="pupper_object_detection" 
+    type="pupper_object_detector.py" 
+    output="screen">
+    <param name="displayImages" value="$(arg displayImages)"/>
+    <param name="modelPath" value="/home/jared/gmu-pupper/src/pupper_object_detection/src/model_state_dicts/fine_tuned_yolov5s.pt"/>
+
+    </node>
+</launch>
