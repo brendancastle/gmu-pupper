@@ -5,7 +5,7 @@ import numpy as np
 from pupper_object_detection.msg import Detection
 
 class FollowController(Controller):
-    def __init__(self, config, inverse_kinematics, automated=True):
+    def __init__(self, config, inverse_kinematics, automated=True, useCenterPointSmoothing=False):
         super().__init__(config, inverse_kinematics)
 
         self.in_follow_state = False
@@ -23,6 +23,9 @@ class FollowController(Controller):
         self.config.mx_y_velocity = 0.1
         self.eps = 0.2
         
+        self.useCenterPointSmoothing = useCenterPointSmoothing
+        self.centerPointAlpha = 0.15
+
         # self.slow_down_distance = 1.0
         
         # probably from config file to get cam_skip_frames, distance 
@@ -37,13 +40,23 @@ class FollowController(Controller):
         
         self.pupper_center = 320 # assuming pupper is at center of camera. width of camera: 120
         self.camera_width = 640
-        self.sensingzone_args = {"min_edge_zone": 40, "max_edge_zone": 300, "max_depth":2, "min_depth":1}
+        self.sensingzone_args = {
+            "min_edge_zone": 40, 
+            "max_edge_zone": 300, 
+            "max_depth":2, 
+            "min_depth":1
+            }
         
-
+        
     def updateTarget(self, detection:Detection):
         self.depthOfTarget = detection.depthAtCenter
-        x = detection.xmin + (detection.xmax - detection.xmin)/2
-        y = detection.ymin + (detection.ymax - detection.ymin)/2        
+        x = detection.xmin + (detection.xmax - detection.xmin)/2    
+        y = detection.ymin + (detection.ymax - detection.ymin)/2
+        
+        if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
+            x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget) * x
+            y = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget) * y        
+        
         self.centerPointOfTarget = (x,y) 
         print(f"Set target to {(x,y)},{self.depthOfTarget}")
 
@@ -72,13 +85,6 @@ class FollowController(Controller):
             return -1
         else:
             return 0
-
-        if x > self.pupper_center: # on right
-            return 1
-        elif x < self.pupper_center: # on left
-            return -1
-        else:
-            return 0 
 
     def set_goal(self, object_center, depth):
         self.goal = (object_center, depth)
