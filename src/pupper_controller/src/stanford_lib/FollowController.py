@@ -31,7 +31,6 @@ class FollowController(Controller):
         
         # object detection
         self.goal = None
-        self.lastGoal = None
         self.centerPointOfTarget = None
         self.pupper_center = 320 # assuming pupper is at center of camera. width of camera: 120
         self.camera_width = 640
@@ -44,6 +43,11 @@ class FollowController(Controller):
         self.useCenterPointSmoothing = useCenterPointSmoothing
         self.centerPointAlpha = 0.15
         self.goalLock = threading.Lock()
+
+        # finding object after no detection
+        self.lastGoal = None
+        self.middle_pixel_threshold = 160
+        self.reorient_state = False
         
         
     def updateTarget(self, detection:Detection):
@@ -76,25 +80,33 @@ class FollowController(Controller):
     def stop(self):
         self.in_follow_state = False
         
-    def yaw_from_coords(self, xy, depth): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
+    def yaw_from_coords(self, xy, depth, use_sensingzone = True): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
         x,_ = xy
-        if depth > self.sensingzone_args["max_depth"]:
-            depth = self.sensingzone_args["max_depth"]
-        elif depth < self.sensingzone_args["min_depth"]:
-            depth = self.sensingzone_args["min_depth"]
+        if use_sensingzone:
+            if depth > self.sensingzone_args["max_depth"]:
+                depth = self.sensingzone_args["max_depth"]
+            elif depth < self.sensingzone_args["min_depth"]:
+                depth = self.sensingzone_args["min_depth"]
+            else:
+                depth = depth
+            
+            scale = (depth-self.sensingzone_args["min_depth"])/(self.sensingzone_args["max_depth"]-self.sensingzone_args["min_depth"])
+            
+            edge = self.sensingzone_args["max_edge_zone"] - (self.sensingzone_args["max_edge_zone"]-self.sensingzone_args["min_edge_zone"])*scale
+            
+            if x > self.camera_width - edge: #this is assuming pupper is at the center of camera
+                return 1
+            elif x < edge:
+                return -1
+            else:
+                return 0
         else:
-            depth = depth
-        
-        scale = (depth-self.sensingzone_args["min_depth"])/(self.sensingzone_args["max_depth"]-self.sensingzone_args["min_depth"])
-        
-        edge = self.sensingzone_args["max_edge_zone"] - (self.sensingzone_args["max_edge_zone"]-self.sensingzone_args["min_edge_zone"])*scale
-        
-        if x > self.camera_width - edge: #this is assuming pupper is at the center of camera
-            return 1
-        elif x < edge:
-            return -1
-        else:
-            return 0
+            if x > self.pupper_center: # on right
+                return 1
+            elif x < self.pupper_center: # on lefr
+                return -1
+            else:
+                return 0 
 
     def set_goal(self, object_center, depth):
         self.goal = (object_center, depth)
@@ -111,15 +123,30 @@ class FollowController(Controller):
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
-                else:
+                    self.reorient_state = True
+
+            if self.reorient_state: # assumes rest state
+                if goal is None: # keep turning until goal found
                     print("pupper turning towards last goal")
-                    delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1])
+                    delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
                     command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
                     super().run(state, command)
+                else: # if goal is found then middle it
+                    lower_pixel_bound = self.camera_width//2 - self.middle_pixel_threshold
+                    upper_pixel_bound = self.camera_width//2 +self.middle_pixel_threshold
+                    if goal[0][0] > lower_pixel_bound and goal[0][0] < upper_pixel_bound:
+                        print ("goal is in the middle, start walking")
+                        self.reorient_state = False
+                    else:
+                        delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
+                        self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
+                        command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+                        super().run(state, command)
 
 
-            if goal is not None:
+
+            if goal is not None and not self.reorient_state:
                 delta_yaw = self.yaw_from_coords(goal[0], goal[1])
                 how_far = self.depth_fn(goal[1])                
                 
