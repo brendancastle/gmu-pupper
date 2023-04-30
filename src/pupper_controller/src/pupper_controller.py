@@ -87,60 +87,64 @@ class PupperController:
         else:
             rospy.loginfo(f"Not zeroing motors!")
 
-        
+        rospy.loginfo("Calling deactivate")
         self.hardware_interface.deactivate()
         time.sleep(2)
-            
         rospy.loginfo(f"Homing motors...")
         self.hardware_interface.home_motors()
         time.sleep(5)
-        rospy.loginfo(f"Done.")
-
+        rospy.loginfo(f"Done setting up motors.")
+        
+        
 
         last_loop = time.time()
         
         self.state.activate_event = 1
+        self.state.activation = 1
         self.state.deactivate_event = 0
         
         while not rospy.is_shutdown():
             command = Command(height=self.config.default_z_ref)
-            try:
-                state = self.state
-                if state.activation == 0:
-                    time.sleep(0.02)                    
-                    if state.activate_event == 1:
-                        rospy.loginfo(f"Robot activated.")
-                        time.sleep(0.1)
-                        self.hardware_interface.serial_handle.reset_input_buffer()
-                        time.sleep(0.1)
-                        self.hardware_interface.activate()
-                        time.sleep(0.1)
-                        state.activation = 1        
-                        continue
-                elif state.activation == 1:
-                    now = time.time()                    
-                    if now - last_loop >= self.config.dt:                        
-                        if state.deactivate_event == 1:
-                            rospy.loginfo(f"Deactivating Robot")
-                            rospy.loginfo(f"Waiting for L1 to activate robot.")
-                            time.sleep(0.1)
-                            self.hardware_interface.deactivate()
-                            time.sleep(0.1)
-                            state.activation = 0
-                            break
-                        self.controller.run(state, command)
-                        self.hardware_interface.set_cartesian_positions(
-                            state.final_foot_locations
-                        )
-                        last_loop = now        
-            except KeyboardInterrupt:
-                rospy.loginfo(f"Deactivating Robot")
-                rospy.loginfo(f"Waiting for L1 to activate robot.")
-                time.sleep(2)
-                self.hardware_interface.deactivate()
-                time.sleep(2)
-                state.activation = 0
 
+            state = self.state
+            if state.activation == 0:
+                time.sleep(0.02)                    
+                if state.activate_event == 1:
+                    rospy.loginfo(f"Robot activated.")
+                    time.sleep(0.1)
+                    self.hardware_interface.serial_handle.reset_input_buffer()
+                    time.sleep(0.1)
+                    rospy.loginfo("Telling pupper to stand")
+                    self.hardware_interface.activate()
+                    rospy.loginfo("Giving it some time to settle....")
+                    time.sleep(5.0)
+                    rospy.loginfo("Done standing")
+                    state.activation = 1
+                    continue
+            elif state.activation == 1:
+                now = time.time()                    
+                if now - last_loop >= self.config.dt:                        
+                    if state.deactivate_event == 1:
+                        rospy.loginfo(f"Deactivating Robot")
+                        rospy.loginfo(f"Waiting for L1 to activate robot.")
+                        time.sleep(0.1)
+                        self.hardware_interface.deactivate()
+                        time.sleep(0.1)
+                        state.activation = 0
+                        break
+                    self.controller.run(state, command)
+                    self.hardware_interface.set_cartesian_positions(
+                        state.final_foot_locations
+                    )
+                    last_loop = now        
+
+        rospy.loginfo(f"Deactivating Robot")            
+        self.controller.stop()
+        time.sleep(0.1)
+        command = Command(height=self.config.default_z_ref)
+        command.stand_event = True
+        self.controller.run(state, command)                
+        time.sleep(0.1)
         self.hardware_interface.deactivate()
         rospy.loginfo("Exiting")
         

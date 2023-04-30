@@ -1,3 +1,4 @@
+import threading
 from src.stanford_lib.Controller import Controller
 from src.stanford_lib.State import BehaviorState
 import numpy as np
@@ -18,13 +19,14 @@ class FollowController(Controller):
         self.l_alpha = 0.15
         self.r_alpha = 0.1
         
-        self.config.max_yaw_rate = 0.05
-        self.config.max_x_velocity = 0.5
-        self.config.mx_y_velocity = 0.5
-        self.eps = 0.2
+        self.config.max_yaw_rate = 1.0
+        self.config.max_x_velocity = 0.2
+        self.config.max_y_velocity = 0.2
+        self.stopDistance = 0.65
         
         self.useCenterPointSmoothing = useCenterPointSmoothing
         self.centerPointAlpha = 0.15
+        self.goalLock = threading.Lock()
 
         # self.slow_down_distance = 1.0
         
@@ -33,6 +35,7 @@ class FollowController(Controller):
         # cam_skip_frames =-1 for checking at every time step.
 
         self.goal = None
+        self.lastGoal = None
         self.automated = automated
         self.in_follow_state = automated
         self.centerPointOfTarget = None
@@ -49,28 +52,34 @@ class FollowController(Controller):
         
         
     def updateTarget(self, detection:Detection):
-        if detection is not None:    
-            self.depthOfTarget = detection.depthAtCenter/1000.0
+        with self.goalLock:
+            if detection is not None:    
+                self.depthOfTarget = detection.depthAtCenter/1000.0
 
-            x = detection.xmin + (detection.xmax - detection.xmin)/2    
-            y = detection.ymin + (detection.ymax - detection.ymin)/2
-            
-            if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
-                x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget[0]) * x
-                y = self.centerPointOfTarget[1] * self.centerPointAlpha + (1-self.centerPointOfTarget[1]) * y
-            
-            self.centerPointOfTarget = (x,y) 
-            print(f"Set target to {(x,y)},{self.depthOfTarget}")
-            self.set_goal((x,y), self.depthOfTarget)
-        else:
-            self.goal = None
+                x = detection.xmin + (detection.xmax - detection.xmin)/2    
+                y = detection.ymin + (detection.ymax - detection.ymin)/2
+                
+                if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
+                    x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointAlpha) * x
+                    y = self.centerPointOfTarget[1] * self.centerPointAlpha + (1-self.centerPointAlpha) * y
+                
+                self.centerPointOfTarget = (x,y) 
+                print(f"Set target to {(x,y)},{self.depthOfTarget}")
+                self.lastGoal = ((x,y), self.depthOfTarget)
+                self.set_goal((x,y), self.depthOfTarget)
+            else:
+                print("Clearing goal")
+                self.goal = None
 
 
     def depth_fn(self, d):
-        if d > self.eps:
+        if d > self.stopDistance:
             return 1
         else:
             return 0
+
+    def stop(self):
+        self.in_follow_state = False
         
     def yaw_from_coords(self, xy, depth): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
         x,_ = xy
@@ -94,34 +103,26 @@ class FollowController(Controller):
 
     def set_goal(self, object_center, depth):
         self.goal = (object_center, depth)
+        
 
     def run(self, state, command):
-        if not self.automated:
-            if command.follow_event:
-                if self.in_follow_state == False:
-                    self.in_follow_state = True
-                    print("t pressed, entered follow state")
-                else:
-                    self.in_follow_state = False
-                    command.stand_event = True
-                    super().run(state, command)
-                    print("t pressed, exited follow state")
-
-        if self.in_follow_state:
-                        
+        if self.in_follow_state:                        
             # print("object_center, depth:",object_center, depth)
             # print(f"goal_pixels: {object_center}, depth: {depth:.2f}")
-            if self.goal is None:
-                if state.behavior_state != BehaviorState.REST or not self.init_run:
+                        
+            with self.goalLock:
+                goal = self.goal
+
+            if goal is None:
+                if state.behavior_state != BehaviorState.REST:
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
-                    self.init_run=True # if this isnt called the pupper never stands if there is no goal 
-            
-            
-            if self.goal is not None:
-                delta_yaw = self.yaw_from_coords(self.goal[0], self.goal[1])
-                how_far = self.depth_fn(self.goal[1])
+
+
+            if goal is not None:
+                delta_yaw = self.yaw_from_coords(goal[0], goal[1])
+                how_far = self.depth_fn(goal[1])                
                 
                 if how_far != 0:  
                     self.ly_ = self.l_alpha * how_far + (1 - self.l_alpha) * self.ly_         # l_alpha*1 for forward. l_alpha*-1 for backward
@@ -131,16 +132,16 @@ class FollowController(Controller):
                     command.horizontal_velocity = np.array([x_vel, y_vel])
         
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
-                     
+                        
                     command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
 
-                    if state.behavior_state != BehaviorState.TROT:
-                        command.trot_event = True
+                    if state.behavior_state != BehaviorState.WALK:
+                        command.walk_event = True
                     super().run(state, command)
                 else:
                     if state.behavior_state != BehaviorState.REST:
                         print("goal reached")
-                        command.stand_eveent = True
+                        command.stand_event = True
                         super().run(state, command)
         else:
             super().run(state, command)
