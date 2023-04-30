@@ -9,8 +9,11 @@ class FollowController(Controller):
     def __init__(self, config, inverse_kinematics, automated=True, useCenterPointSmoothing=False):
         super().__init__(config, inverse_kinematics)
 
-        self.in_follow_state = False
-        self.following = False
+        # automation
+        self.automated = automated
+        self.in_follow_state = automated
+
+        # movement
         self.rx_ = 0.0
         self.ry_ = 0.0
         self.lx_ = 0.0
@@ -22,25 +25,14 @@ class FollowController(Controller):
         self.config.max_yaw_rate = 1.0
         self.config.max_x_velocity = 0.2
         self.config.max_y_velocity = 0.2
+
+        # distance
         self.stopDistance = 0.65
         
-        self.useCenterPointSmoothing = useCenterPointSmoothing
-        self.centerPointAlpha = 0.15
-        self.goalLock = threading.Lock()
-
-        # self.slow_down_distance = 1.0
-        
-        # probably from config file to get cam_skip_frames, distance 
-        self.camera_only = True 
-        # cam_skip_frames =-1 for checking at every time step.
-
+        # object detection
         self.goal = None
         self.lastGoal = None
-        self.automated = automated
-        self.in_follow_state = automated
         self.centerPointOfTarget = None
-        self.init_run = False
-        
         self.pupper_center = 320 # assuming pupper is at center of camera. width of camera: 120
         self.camera_width = 640
         self.sensingzone_args = {
@@ -49,6 +41,9 @@ class FollowController(Controller):
             "max_depth":2, 
             "min_depth":1
             }
+        self.useCenterPointSmoothing = useCenterPointSmoothing
+        self.centerPointAlpha = 0.15
+        self.goalLock = threading.Lock()
         
         
     def updateTarget(self, detection:Detection):
@@ -107,8 +102,6 @@ class FollowController(Controller):
 
     def run(self, state, command):
         if self.in_follow_state:                        
-            # print("object_center, depth:",object_center, depth)
-            # print(f"goal_pixels: {object_center}, depth: {depth:.2f}")
                         
             with self.goalLock:
                 goal = self.goal
@@ -118,6 +111,12 @@ class FollowController(Controller):
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
+                else:
+                    print("pupper turning towards last goal")
+                    delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1])
+                    self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
+                    command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+                    super().run(state, command)
 
 
             if goal is not None:
