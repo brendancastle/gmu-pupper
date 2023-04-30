@@ -34,6 +34,11 @@ class FollowController(Controller):
         self.in_follow_state = automated
         self.centerPointOfTarget = None
         self.init_run = False
+        
+        self.pupper_center = 320 # assuming pupper is at center of camera. width of camera: 120
+        self.camera_width = 640
+        self.sensingzone_args = {"min_edge_zone": 40, "max_edge_zone": 300, "max_depth":2, "min_depth":1}
+        
 
     def updateTarget(self, detection:Detection):
         self.depthOfTarget = detection.depthAtCenter
@@ -49,11 +54,28 @@ class FollowController(Controller):
             return 0
         
     def yaw_from_coords(self, xy, depth): # v1 is that it simply turns right or left depending on where the object is. its not very fine tuned.
-        self.pupper_center = 320 # assuming pupper is at center of camera. width of camera: 120
         x,_ = xy
+        if depth > self.sensingzone_args["max_depth"]:
+            depth = self.sensingzone_args["max_depth"]
+        elif depth < self.sensingzone_args["min_depth"]:
+            depth = self.sensingzone_args["min_depth"]
+        else:
+            depth = depth
+        
+        scale = (depth-self.sensingzone_args["min_depth"])/(self.sensingzone_args["max_depth"]-self.sensingzone_args["min_depth"])
+        
+        edge = self.sensingzone_args["max_edge_zone"] - (self.sensingzone_args["max_edge_zone"]-self.sensingzone_args["min_edge_zone"])*scale
+        
+        if x > self.camera_width - edge: #this is assuming pupper is at the center of camera
+            return 1
+        elif x < edge:
+            return -1
+        else:
+            return 0
+
         if x > self.pupper_center: # on right
             return 1
-        elif x < self.pupper_center: # on lefr
+        elif x < self.pupper_center: # on left
             return -1
         else:
             return 0 
