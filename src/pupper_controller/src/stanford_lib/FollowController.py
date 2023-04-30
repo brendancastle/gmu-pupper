@@ -54,8 +54,8 @@ class FollowController(Controller):
         y = detection.ymin + (detection.ymax - detection.ymin)/2
         
         if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
-            x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget) * x
-            y = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget) * y        
+            x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget[0]) * x
+            y = self.centerPointOfTarget[1] * self.centerPointAlpha + (1-self.centerPointOfTarget[1]) * y
         
         self.centerPointOfTarget = (x,y) 
         print(f"Set target to {(x,y)},{self.depthOfTarget}")
