@@ -19,8 +19,8 @@ class FollowController(Controller):
         self.r_alpha = 0.1
         
         self.config.max_yaw_rate = 0.05
-        self.config.max_x_velocity = 0.1
-        self.config.mx_y_velocity = 0.1
+        self.config.max_x_velocity = 0.5
+        self.config.mx_y_velocity = 0.5
         self.eps = 0.2
         
         self.useCenterPointSmoothing = useCenterPointSmoothing
@@ -49,16 +49,22 @@ class FollowController(Controller):
         
         
     def updateTarget(self, detection:Detection):
-        self.depthOfTarget = detection.depthAtCenter
-        x = detection.xmin + (detection.xmax - detection.xmin)/2    
-        y = detection.ymin + (detection.ymax - detection.ymin)/2
-        
-        if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
-            x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget[0]) * x
-            y = self.centerPointOfTarget[1] * self.centerPointAlpha + (1-self.centerPointOfTarget[1]) * y
-        
-        self.centerPointOfTarget = (x,y) 
-        print(f"Set target to {(x,y)},{self.depthOfTarget}")
+        if detection is not None:    
+            self.depthOfTarget = detection.depthAtCenter/1000.0
+
+            x = detection.xmin + (detection.xmax - detection.xmin)/2    
+            y = detection.ymin + (detection.ymax - detection.ymin)/2
+            
+            if self.useCenterPointSmoothing and self.centerPointOfTarget is not None:
+                x = self.centerPointOfTarget[0] * self.centerPointAlpha + (1-self.centerPointOfTarget[0]) * x
+                y = self.centerPointOfTarget[1] * self.centerPointAlpha + (1-self.centerPointOfTarget[1]) * y
+            
+            self.centerPointOfTarget = (x,y) 
+            print(f"Set target to {(x,y)},{self.depthOfTarget}")
+            self.set_goal((x,y), self.depthOfTarget)
+        else:
+            self.goal = None
+
 
     def depth_fn(self, d):
         if d > self.eps:
@@ -102,10 +108,7 @@ class FollowController(Controller):
                     print("t pressed, exited follow state")
 
         if self.in_follow_state:
-            object_center = None
-            depth = None
-            if self.centerPointOfTarget is not None:
-                object_center, depth = self.centerPointOfTarget, self.depthOfTarget/1000.0  
+                        
             # print("object_center, depth:",object_center, depth)
             # print(f"goal_pixels: {object_center}, depth: {depth:.2f}")
             if self.goal is None:
@@ -114,9 +117,7 @@ class FollowController(Controller):
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
                     self.init_run=True # if this isnt called the pupper never stands if there is no goal 
-
-            if object_center is not None and depth is not None:
-                self.goal = (object_center, depth)
+            
             
             if self.goal is not None:
                 delta_yaw = self.yaw_from_coords(self.goal[0], self.goal[1])
