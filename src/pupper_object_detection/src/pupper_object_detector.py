@@ -31,11 +31,13 @@ class PupperObjectDetector:
         rospy.loginfo(model.names)
         # model.conf = 0.50  # NMS confidence threshold
         # model.iou = 0.45  # NMS IoU threshold
+        for i in range(len(model.names)):
+            rospy.loginfo(f"{i}\t{model.names[i]}")
         model.agnostic = False  # NMS class-agnostic
         model.multi_label = False  # NMS multiple labels per box
         # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
         # 32 = sports ball
-        # model.classes = [32]
+        # model.classes = [32, 64]
         model.max_det = 5  # maximum number of detections per image
         model.amp = True  # Automatic Mixed Precision (AMP) inference
 
@@ -87,6 +89,7 @@ class PupperObjectDetector:
             color_image, depth_image = self.lastFrames
             
             image = color_image.copy()
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             image_depth = depth_image.copy()
 
             if self.lastDetectionMsg is not None:                
