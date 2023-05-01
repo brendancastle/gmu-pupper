@@ -37,27 +37,50 @@ class PupperObjectDetector:
         model.multi_label = False  # NMS multiple labels per box
         # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
         # 32 = sports ball
-        # model.classes = [32, 64]
+        model.classes = [32]
         model.max_det = 5  # maximum number of detections per image
         model.amp = True  # Automatic Mixed Precision (AMP) inference
 
         self.model = model
         
-        self.detectionsPublisher = rospy.Publisher("pupper_detections", Detections)
+        self.detectionsPublisher = rospy.Publisher("pupper_detections", Detections, queue_size=1)
         rgbSubscriber = message_filters.Subscriber("/camera/color/image_raw", Image)
         alignedDepthSubscriber = message_filters.Subscriber("/camera/aligned_depth_to_color/image_raw", Image)
 
+        rospy.Subscriber("/camera/color/image_raw", Image, self.handleRgbFrames)
+        rospy.Subscriber("/camera/depth/image_rect_raw", Image, self.handleDepthFrames)
+
         # #frames are 30fps so look for things within 2/30 seconds of eachother?
         # In practice it seems these tend to have identical timestamps
-        self.synchronizer = message_filters.TimeSynchronizer([rgbSubscriber,alignedDepthSubscriber], 10, 2/30.0)
+        self.synchronizer = message_filters.ApproximateTimeSynchronizer([rgbSubscriber,alignedDepthSubscriber], 30, 1)
         
-        self.lastFrames = None
+        self.lastFrames = [None, None, None]
         self.lastDetectionMsg = None
 
+        self.counter = 0
+        self.currentSeconds = 0
         self.totalFrames = 0 
         self.totalRunTime = 0
+        self.sequence = 0
+        self.frameCount = 0
         self.cv_bridge = CvBridge()
-        
+        self.frameLock = threading.Lock()
+        self.startTime = time.time()
+        self.lastSeq = None
+
+    def handleRgbFrames(self, rgbImage):
+        color_frame = self.cv_bridge.imgmsg_to_cv2(rgbImage, rgbImage.encoding)
+        color_image = np.asanyarray(color_frame)        
+        self.frameCount += 1        
+        rospy.loginfo_throttle(1, f"Got RGB: {rgbImage.width}x{rgbImage.height} frames [{rgbImage.header.seq} at {time.time()}")
+        self.lastFrames[1] = color_image
+        self.lastFrames[0] = rgbImage.header.seq
+
+    def handleDepthFrames(self, depthImage):
+        depth_frame = self.cv_bridge.imgmsg_to_cv2(depthImage, desired_encoding="passthrough")
+        depth_image = np.asanyarray(depth_frame)
+        self.lastFrames[2] = depth_image
+        rospy.loginfo_throttle(1, f"Got D: {depthImage.width}x{depthImage.height} frames [{depthImage.header.seq} at {time.time()}")
 
     def handleFrames(self, rgbImage:Image, depthImage:Image):
         """
@@ -65,28 +88,31 @@ class PupperObjectDetector:
 
         Every consumer of these frames downstreams has to convert to a np.ndarray so we just do that here and 
         make them available to everyone
-        """
+        """       
         
-        
+        # rospy.loginfo(rgbImage)
+        # rospy.loginfo(depthImage)
+
         depth_frame = self.cv_bridge.imgmsg_to_cv2(depthImage, desired_encoding="passthrough")
         color_frame = self.cv_bridge.imgmsg_to_cv2(rgbImage, rgbImage.encoding)
-
         
         depth_image = np.asanyarray(depth_frame)
         color_image = np.asanyarray(color_frame)        
         
-        self.lastFrames = (color_image, depth_image)
-        
-        rospy.logdebug_throttle(1, f"rgb = {rgbImage.encoding} \t depth = {depthImage.encoding}")
-        
-
+        rospy.loginfo_throttle(1, f"Got {rgbImage.width}x{rgbImage.height} frames [{rgbImage.header.seq},{depthImage.header.seq} at {time.time()}")
+        self.lastFrames = [rgbImage.header.seq, color_image, depth_image]       
+    
     def renderFrames(self):        
         while not self.stopSignal.is_set():
-            if self.lastFrames is None:
+            if self.lastFrames is None or self.lastFrames[0] is None or self.lastFrames[1] is None or self.lastFrames[2] is None:
+                rospy.loginfo("Waiting for rgb frames...")
                 continue
             
+            seq, color_image, depth_image = self.lastFrames            
+            if self.lastSeq == seq:
+                rospy.loginfo("Got stale image")
+                continue                      
             
-            color_image, depth_image = self.lastFrames
             
             image = color_image.copy()
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -108,9 +134,9 @@ class PupperObjectDetector:
                     image = cv2.rectangle(image, start_point, end_point, bgr_color, 3)
                     image = cv2.putText(image, f"{className} {depthAtCenter/1000.0:.2f}m", start_point, cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 2, cv2.LINE_AA)
 
-            if self.totalFrames > 0 and self.totalRunTime > 0:
-                averageFps = self.totalFrames / self.totalRunTime
-                image = cv2.putText(image, str(averageFps), [10, 20], cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1, cv2.LINE_AA)
+            if self.frameCount > 0:
+                averageFps = self.frameCount / (time.time() - self.startTime)
+                image = cv2.putText(image, f"{time.time():.1f} - {averageFps:.1f}", [10, 20], cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1, cv2.LINE_AA)
         
             depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(image_depth), cv2.COLORMAP_JET)
             depth_colormap_dim = depth_colormap.shape
@@ -122,14 +148,12 @@ class PupperObjectDetector:
                 images = np.hstack((image, depth_colormap))        
             
             # Show images            
-            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-            cv2.imshow('RealSense', images)
+            cv2.namedWindow('PupperVision', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('PupperVision', images)
             cv2.waitKey(1)            
 
     def runInference(self, color_image:Image, depth_image:Image):        
-            
-        color_image, depth_image = self.lastFrames
-
+        
         results = self.model([color_image])
 
         detections = []
@@ -167,18 +191,19 @@ class PupperObjectDetector:
 
     def detectionWorker(self):
         self.totalFrames = 0
-        self.totalRunTime = 0        
-
-        while not self.stopSignal.is_set():            
-            if self.lastFrames == None:
+        self.totalRunTime = 0
+        lastSeq = -1
+        while not self.stopSignal.is_set():                        
+            if self.lastFrames == None or self.lastFrames[0] is None or self.lastFrames[1] is None or self.lastFrames[2] is None:
                 rospy.loginfo_throttle(1, "Waiting for frames...")
                 continue
             
-            rgbFrame, depthFrame = self.lastFrames
-            start = time.time()
+            seq, rgbFrame, depthFrame = self.lastFrames           
             
-            self.runInference(rgbFrame,depthFrame)
-            
+            start = time.time()            
+            if lastSeq != seq:
+                lastSeq = seq
+                self.runInference(rgbFrame,depthFrame)            
             end = time.time()        
             lastFrameTime = end-start
             self.totalRunTime += lastFrameTime
@@ -189,7 +214,7 @@ class PupperObjectDetector:
 
     def start(self):
         self.displayImages = rospy.get_param("pupper_object_detector_node/displayImages",False)
-        self.synchronizer.registerCallback(self.handleFrames)        
+        # self.synchronizer.registerCallback(self.handleFrames)        
         self.lock = threading.Lock()
         self.stopSignal = threading.Event()
         self.detectionWorkerThread = threading.Thread(target=self.detectionWorker)

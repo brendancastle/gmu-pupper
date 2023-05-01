@@ -5,6 +5,8 @@ from enum import Enum
 
 class Configuration:
     def __init__(self):
+        ################# FOLLOW_CONTROLLER_PARAMS ##############
+        self.stop_distance = 0.25
         ################# CONTROLLER BASE COLOR ##############
         self.ps4_color = PS4_COLOR
         self.ps4_deactivated_color = PS4_DEACTIVATED_COLOR
@@ -25,6 +27,7 @@ class Configuration:
         self.yaw_time_constant = 0.3
         self.max_stance_yaw = 1.2
         self.max_stance_yaw_rate = 2.0
+        
 
         #################### STANCE ####################
         self.delta_x = 0.1

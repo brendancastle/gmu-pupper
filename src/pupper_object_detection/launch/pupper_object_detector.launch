@@ -7,7 +7,8 @@
     type="pupper_object_detector.py" 
     output="screen">
     <param name="displayImages" value="$(arg displayImages)"/>
-    <param name="modelPath" value="/home/jared/gmu-pupper/src/pupper_object_detection/src/model_state_dicts/fine_tuned_yolov5s.pt"/>
+    <!-- <param name="modelPath" value="/home/jared/gmu-pupper/src/pupper_object_detection/src/model_state_dicts/fine_tuned_yolov5s.pt"/> -->
+    <param name="modelPath" value="/home/jared/small_model/model.onnx"/>
 
     </node>
 </launch>

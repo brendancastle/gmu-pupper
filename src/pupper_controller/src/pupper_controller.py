@@ -38,7 +38,18 @@ class PupperController:
 
         rospy.loginfo(f"log = {self.log}\tzero = {self.zero}\thome= {self.home}")
         config = Configuration()
-        self.config = Configuration()
+        
+        
+
+        max_yaw_rate = rospy.get_param("/pupper_controller_node/max_yaw_rate", 1.0)
+        max_x_velocity = rospy.get_param("/pupper_controller_node/max_x_velocity", 0.25)
+        max_y_velocity = rospy.get_param("/pupper_controller_node/max_y_velocity", 0.25)
+        stop_distance = rospy.get_param("/pupper_controller_node/stop_distance", 0.25)
+        config.max_yaw_rate = max_yaw_rate
+        config.max_x_velocity = max_x_velocity
+        config.max_y_velocity = max_y_velocity
+        config.stop_distance = stop_distance
+        
         hardware_interface = HardwareInterface.HardwareInterface(port=SERIAL_PORT)
         time.sleep(0.1)
 
@@ -93,8 +104,7 @@ class PupperController:
         rospy.loginfo(f"Homing motors...")
         self.hardware_interface.home_motors()
         time.sleep(5)
-        rospy.loginfo(f"Done setting up motors.")
-        
+        rospy.loginfo(f"Done setting up motors.")        
         
 
         last_loop = time.time()

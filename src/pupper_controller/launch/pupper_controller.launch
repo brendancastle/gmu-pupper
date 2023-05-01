@@ -1,8 +1,13 @@
 <launch>
     <!-- <arg name="mode" default="_default_text_"> -->
-    <arg name="log" type="bool" default="true"/>
-    <arg name="zero" type="bool" default="false"/>
-    <arg name="home" type="bool" default="false"/>
+    <arg name="log"  default="true"/>
+    <arg name="zero" default="false"/>
+    <arg name="home" default="false"/>
+    <arg name="max_yaw_rate" default="1.0"/>
+    <arg name="max_x_velocity" default="0.25"/>
+    <arg name="max_y_velocity" default="0.25"/>
+    <arg name="stop_distance" default="0.25"/>
+
     <node 
         name="pupper_controller_node" 
         pkg="pupper_controller" 
@@ -11,5 +16,10 @@
         <param name="log" value="$(arg log)" /> 
         <param name="zero" value="$(arg zero)" /> 
         <param name="home" value="$(arg home)" /> 
+
+        <param name="max_yaw_rate" value ="$(arg max_yaw_rate)" type='double'/>
+        <param name="max_x_velocity" value ="$(arg max_x_velocity)" type='double'/>
+        <param name="max_y_velocity" value ="$(arg max_y_velocity)" type='double'/>
+        <param name="stop_distance" value ="$(arg stop_distance)" type='double'/>
     </node>
 </launch>

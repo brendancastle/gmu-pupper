@@ -22,12 +22,12 @@ class FollowController(Controller):
         self.l_alpha = 0.15
         self.r_alpha = 0.1
         
-        self.config.max_yaw_rate = 1.0
-        self.config.max_x_velocity = 0.2
-        self.config.max_y_velocity = 0.2
+        # self.config.max_yaw_rate = 1.0
+        # self.config.max_x_velocity = 0.6
+        # self.config.max_y_velocity = 0.6
 
         # distance
-        self.stopDistance = 0.65
+        self.stopDistance = self.config.stop_distance
         
         # object detection
         self.goal = None
@@ -123,7 +123,7 @@ class FollowController(Controller):
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
-                    self.reorient_state = True
+                    self.reorient_state = False
 
             if self.reorient_state: # assumes rest state
                 if goal is None: # keep turning until goal found
