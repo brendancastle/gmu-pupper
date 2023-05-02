@@ -1,0 +1,8 @@
+<launch>
+    <node 
+    name="pupper_rgbd_publisher_node" 
+    pkg="pupper_rgbd_publisher" 
+    type="pupper_camera_runner.py" 
+    output="screen">        
+    </node>
+</launch>

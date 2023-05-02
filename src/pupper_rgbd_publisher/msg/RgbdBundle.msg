@@ -1,0 +1,3 @@
+Header header
+sensor_msgs/Image rgbImage
+sensor_msgs/Image depthImage
