@@ -123,14 +123,32 @@ class FollowController(Controller):
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
-                    self.reorient_state = False
+                    # v2 self reorient:
+                    self.ly_ = 0
+                    self.rx_ = 0
+                    self.reorient_state = True
 
             if self.reorient_state: # assumes rest state
                 lower_pixel_bound = self.camera_width//2 - self.middle_pixel_threshold
                 upper_pixel_bound = self.camera_width//2 +self.middle_pixel_threshold
 
-                if goal is None or not (goal[0][0] > lower_pixel_bound and goal[0][0] < upper_pixel_bound): # keep turning until goal found
-                    print("pupper turning towards last goal")
+                if goal is None or not (goal[0][0] > lower_pixel_bound and goal[0][0] < upper_pixel_bound): 
+                    # v1: keep turning until goal found --> failed because turning while standing doesnt (easily) translate into walking turning
+                    # print("pupper turning towards last goal")
+                    # delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
+                    # self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
+                    # command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+                    # super().run(state, command)
+
+                    # v2: back and turn towards old goal
+                    print("pupper backing and turning towards last goal")
+                    self.ly_ = self.l_alpha * how_far*-1 + (1 - self.l_alpha) * self.ly_         # l_alpha*1 for forward. l_alpha*-1 for backward
+                    x_vel = self.ly_ * self.config.max_x_velocity
+                    y_vel = self.lx_ * -self.config.max_y_velocity
+                    
+                    command.horizontal_velocity = np.array([x_vel, y_vel])
+                    if state.behavior_state != BehaviorState.WALK:
+                        command.walk_event = True
                     delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
                     command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
@@ -138,6 +156,7 @@ class FollowController(Controller):
                 else: # goal is found & in the middle
                     print ("goal is in the middle, start walking")
                     self.reorient_state = False
+                    self.ly_ = 0
                     
 
 
