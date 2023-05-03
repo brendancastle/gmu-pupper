@@ -21,6 +21,22 @@ from sensor_msgs.msg import Image
 from pupper_rgbd_publisher.msg import RgbdBundle
 import pathlib
 
+
+def draw_text(img, text,
+        font=cv2.FONT_HERSHEY_PLAIN,
+        pos=(0, 0),
+        font_scale=3,
+        font_thickness=2,
+        text_color=(0, 255, 0),
+        text_color_bg=(0, 0, 0)
+        ):
+
+    x, y = pos
+    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+    text_w, text_h = text_size
+    cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
+    cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
+
 class PupperObjectDetector:
 
     def __init__(self):
@@ -65,7 +81,7 @@ class PupperObjectDetector:
 
         self.counter = 0
         self.currentSeconds = 0
-        self.totalFrames = 0 
+        self.totalInferenceFrames = 0 
         self.totalRunTime = 0
         self.sequence = 0
         self.frameCount = 0
@@ -73,6 +89,9 @@ class PupperObjectDetector:
         self.frameLock = threading.Lock()
         self.startTime = time.time()
         self.lastSeq = None        
+        self.totalInferenceFrames = 0
+        self.totalRunTime = 0
+        self.averageInferenceFps = 0
 
     def handleRgbdBundle(self, rgbdBundle):
         rgbdImage = rgbdBundle.rgbImage
@@ -149,12 +168,21 @@ class PupperObjectDetector:
                     start_point = [xA, yA]
                     end_point = [xB, yB]
                 
-                    image = cv2.rectangle(image, start_point, end_point, bgr_color, 3)
+                    image = cv2.rectangle(image, start_point, end_point, bgr_color, 3)                    
                     image = cv2.putText(image, f"{className} {depthAtCenter/1000.0:.2f}m", start_point, cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 2, cv2.LINE_AA)
 
             if self.frameCount > 0:
-                averageFps = self.frameCount / (time.time() - self.startTime)
-                image = cv2.putText(image, f"{time.time():.1f} - {averageFps:.1f}", [10, 20], cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1, cv2.LINE_AA)
+                averageFps = self.frameCount / (time.time() - self.startTime)                
+                msg = f"Video FPS: {averageFps:.1f}, Inference FPS: {self.averageInferenceFps:.1f}"                
+                draw_text(image, msg, font_scale=1, pos=(10,10))
+                # font = cv2.FONT_HERSHEY_PLAIN                
+                # textSize, _ = cv2.getTextSize(msg, font, 1, cv2.LINE_AA)
+                # rospy.loginfo(f"textSize = {textSize}. Position = {position}")
+                # x,y=position
+                # textWidth, textHeight = textSize
+                # rospy.loginfo(f"x,y = {x},{y} textWidth,textHeight = {textWidth}, {textHeight}")
+                # cv2.rectangle(image, position, (x + textWidth, y + textHeight), (0,0,0), -1)
+                # image = cv2.putText(image, msg, position, font, 1, (255, 255, 255), 1, cv2.LINE_AA)
         
             depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(image_depth), cv2.COLORMAP_JET)
             depth_colormap_dim = depth_colormap.shape
@@ -171,7 +199,7 @@ class PupperObjectDetector:
             cv2.waitKey(1)            
 
     def runInference(self, color_image:Image, depth_image:Image):        
-        
+                
         with torch.no_grad():
             results = self.model([color_image], size=640)
 
@@ -209,9 +237,9 @@ class PupperObjectDetector:
         self.detectionsPublisher.publish(detectionsMsg)
 
     def detectionWorker(self):
-        self.totalFrames = 0
+        self.totalInferenceFrames = 0
         self.totalRunTime = 0
-        lastSeq = -1
+        self.averageInferenceFps = 0
         while not self.stopSignal.is_set():                        
             if self.lastFrames == None or self.lastFrames[0] is None or self.lastFrames[1] is None or self.lastFrames[2] is None:
                 rospy.loginfo_throttle(1, "Waiting for frames...")
@@ -226,10 +254,10 @@ class PupperObjectDetector:
             end = time.time()        
             lastFrameTime = end-start
             self.totalRunTime += lastFrameTime
-            self.totalFrames += 1
-            if self.totalFrames > 0 and self.totalRunTime > 0:
-                averageFps = self.totalFrames / self.totalRunTime
-                rospy.loginfo_throttle(1, f"FPS: {averageFps}")
+            self.totalInferenceFrames += 1
+            if self.totalInferenceFrames > 0 and self.totalRunTime > 0:
+                self.averageInferenceFps = self.totalInferenceFrames / self.totalRunTime
+                rospy.loginfo_throttle(1, f"FPS: {self.averageInferenceFps}")
 
     def start(self):
         self.displayImages = rospy.get_param("pupper_object_detector_node/displayImages",False)
@@ -261,3 +289,5 @@ if __name__ == '__main__':
         detector.start()
     except rospy.ROSInterruptException:
         detector.stop()
+
+

@@ -25,7 +25,7 @@ try:
 except ImportError as e:
     print("Error importing libs...", traceback.format_exc())
 
-from pupper_object_detection.msg import Detection, Detections, Test
+from pupper_object_detection.msg import Detection, Detections
 
 DIRECTORY = "/home/pi/gmu-pupper/logs/"
 FILE_DESCRIPTOR = "walking"

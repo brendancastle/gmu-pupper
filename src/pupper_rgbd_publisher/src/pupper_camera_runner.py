@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import time
-import pyrealsense2 as rs
+import pyrealsense2.pyrealsense2 as rs
 
+import numpy as np
 import rospy
 import cv2
 import cv_bridge
-from pupper_rgbd_publisher.msg import RgbdBundle
+from pupper_rgbd_publisher.msg import *
 
 # Start streaming
 
@@ -40,7 +41,7 @@ class PupperRgbdPublisher:
         self.rgbdPublisher = rospy.Publisher("pupper_rgbd", RgbdBundle, queue_size=1)
         self.cvBridge = cv_bridge.CvBridge()
 
-    def start(self):
+    def start(self):    
         self.pipeline.start(self.config)
         framecount = 0
         starttime = time.time()
@@ -49,16 +50,19 @@ class PupperRgbdPublisher:
             frames = self.pipeline.wait_for_frames()
             depth_frame = frames.get_depth_frame()
             color_frame = frames.get_color_frame()
-
+    
             color_array = np.asanyarray(color_frame.get_data())
             depth_array = np.asanyarray(depth_frame.get_data())
 
+            color_array = cv2.resize(color_array, (320,240), interpolation = cv2.INTER_AREA)
+            depth_array = cv2.resize(depth_array, (320,240), interpolation = cv2.INTER_AREA)
+    
             rgbImage = self.cvBridge.cv2_to_imgmsg(color_array, 'bgr8')
             depthImage = self.cvBridge.cv2_to_imgmsg(depth_array, 'passthrough')
-
+    
             if not depth_frame or not color_frame:
                 continue
-
+    
             bundle = RgbdBundle()
             bundle.rgbImage = rgbImage
             bundle.depthImage = depthImage
@@ -66,9 +70,9 @@ class PupperRgbdPublisher:
             framecount +=1
             ellapsed=time.time()-starttime
             rospy.loginfo_throttle(1, f"FPS: {framecount/ellapsed}")
+
     def stop(self):
-        rospy.loginfo(f"Stopping pupper object detector")
-        # self.pipeline.stop()
+        self.pipeline.stop()
 
 
 if __name__ == '__main__':
