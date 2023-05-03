@@ -126,24 +126,19 @@ class FollowController(Controller):
                     self.reorient_state = False
 
             if self.reorient_state: # assumes rest state
-                if goal is None: # keep turning until goal found
+                lower_pixel_bound = self.camera_width//2 - self.middle_pixel_threshold
+                upper_pixel_bound = self.camera_width//2 +self.middle_pixel_threshold
+
+                if goal is None or not (goal[0][0] > lower_pixel_bound and goal[0][0] < upper_pixel_bound): # keep turning until goal found
                     print("pupper turning towards last goal")
                     delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
                     command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
                     super().run(state, command)
-                else: # if goal is found then middle it
-                    lower_pixel_bound = self.camera_width//2 - self.middle_pixel_threshold
-                    upper_pixel_bound = self.camera_width//2 +self.middle_pixel_threshold
-                    if goal[0][0] > lower_pixel_bound and goal[0][0] < upper_pixel_bound:
-                        print ("goal is in the middle, start walking")
-                        self.reorient_state = False
-                    else:
-                        delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
-                        self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
-                        command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
-                        super().run(state, command)
-
+                else: # goal is found & in the middle
+                    print ("goal is in the middle, start walking")
+                    self.reorient_state = False
+                    
 
 
             if goal is not None and not self.reorient_state:
