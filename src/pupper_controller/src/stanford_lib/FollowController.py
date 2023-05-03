@@ -48,6 +48,7 @@ class FollowController(Controller):
         self.lastGoal = None
         self.middle_pixel_threshold = 160
         self.reorient_state = False
+        self.use_reorient = True
         
         
     def updateTarget(self, detection:Detection):
@@ -124,9 +125,10 @@ class FollowController(Controller):
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
                     # v2 self reorient:
-                    self.ly_ = 0
-                    self.rx_ = 0
-                    self.reorient_state = True
+                    if self.use_reorient:
+                        self.ly_ = 0
+                        self.rx_ = 0
+                        self.reorient_state = True
 
             if self.reorient_state: # assumes rest state
                 lower_pixel_bound = self.camera_width//2 - self.middle_pixel_threshold
