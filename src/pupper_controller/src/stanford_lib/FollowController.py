@@ -49,6 +49,8 @@ class FollowController(Controller):
         self.middle_pixel_threshold = 160
         self.reorient_state = False
         self.use_reorient = True
+        self.backing_max_vel = 2 # vs 0.6 in forward max vel
+        self.backing_max_yaw = 4 # vs 2.5 in forward max yaw
         
         
     def updateTarget(self, detection:Detection):
@@ -120,7 +122,7 @@ class FollowController(Controller):
                 goal = self.goal
 
             if goal is None:
-                if state.behavior_state != BehaviorState.REST:
+                if not self.reorient_state and state.behavior_state != BehaviorState.REST:
                     command.stand_event = True
                     super().run(state, command)
                     print("pupper standing because no object detected and no goal is set already")
@@ -144,16 +146,17 @@ class FollowController(Controller):
 
                     # v2: back and turn towards old goal
                     print("pupper backing and turning towards last goal")
+                    how_far = self.depth_fn(self.lastGoal[1])  
                     self.ly_ = self.l_alpha * how_far*-1 + (1 - self.l_alpha) * self.ly_         # l_alpha*1 for forward. l_alpha*-1 for backward
-                    x_vel = self.ly_ * self.config.max_x_velocity
-                    y_vel = self.lx_ * -self.config.max_y_velocity
+                    x_vel = self.ly_ * self.backing_max_vel
+                    y_vel = self.lx_ * -self.backing_max_vel
                     
                     command.horizontal_velocity = np.array([x_vel, y_vel])
                     if state.behavior_state != BehaviorState.WALK:
                         command.walk_event = True
                     delta_yaw = self.yaw_from_coords(self.lastGoal[0], self.lastGoal[1], False)
                     self.rx_ = self.r_alpha * delta_yaw + (1 - self.r_alpha) * self.rx_ #r_alpha*1 for right. r_alpha*-1 for left
-                    command.yaw_rate = self.rx_ * -self.config.max_yaw_rate
+                    command.yaw_rate = self.rx_ * -self.backing_max_yaw
                     super().run(state, command)
                 else: # goal is found & in the middle
                     print ("goal is in the middle, start walking")
